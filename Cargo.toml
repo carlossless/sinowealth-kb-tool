@@ -1,0 +1,23 @@
+[package]
+name = "sinowealth-kb-tool"
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+clap = "4.1"
+hidapi = "2.2"
+ihex = "3.0"
+ihex_ext = "1.0"
+
+[dependencies.log]
+version = "0.4"
+features = ["max_level_debug", "release_max_level_info"]
+
+[dependencies.simple_logger]
+version = "4.1"
+features = ["stderr", "colors"]
+
+[dependencies.phf]
+version = "0.11"
+features = ["macros"]
