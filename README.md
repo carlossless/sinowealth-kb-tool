@@ -11,6 +11,7 @@ This is an experimental tool, so use it at your own risk.
 | Keyboard | ISP MD5 | MCU | Supported |
 | -------- | ------- | --- | --------- |
 | [NuPhy Air60](https://nuphy.com/products/air60) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A (labeled as BYK916) | ✅ |
+| Xinmeng K916 | unknown | SH68F90 | ❓ |
 
 ## Acknowledgments
 
