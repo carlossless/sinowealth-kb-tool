@@ -23,12 +23,20 @@ fn cli() -> Command {
         .subcommand(
             Command::new("read")
                 .short_flag('r')
-                .about("Read flash contents.")
+                .about("Read flash contents. (ihex)")
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
                 .arg(
                     arg!(-p --part <PART>)
                         .value_parser(PARTS.keys().map(|&s| s).collect::<Vec<_>>())
                         .required(true),
+                )
+                .arg(
+                    arg!(-b --bootloader "read only booloader")
+                        .conflicts_with("full")
+                )
+                .arg(
+                    arg!(-f --full "read complete flash (including the bootloader)")
+                        .conflicts_with("bootloader")
                 ),
         )
         .subcommand(
@@ -61,9 +69,19 @@ fn main() {
                 .map(|s| s.as_str())
                 .unwrap();
 
+            let full = sub_matches.get_flag("full");
+
+            let bootloader = sub_matches.get_flag("bootloader");
+
             let part = PARTS.get(part_name).unwrap();
 
-            let result = Programmer::new(part).read_cycle();
+            let read_type = match (full, bootloader) {
+                (true, _) => ReadType::Full,
+                (_, true) => ReadType::Bootloader,
+                _ => ReadType::Normal
+            };
+
+            let result = Programmer::new(part).read_cycle(read_type);
 
             let ihex = result.to_ihex();
 

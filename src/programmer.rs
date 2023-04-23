@@ -10,6 +10,8 @@ pub struct Programmer<'a> {
     part: &'a Part,
 }
 
+const MAX_RETRIES: usize = 10;
+
 const GAMING_KB_VENDOR_ID: u16 = 0x0603;
 const GAMING_KB_PRODUCT_ID: u16 = 0x1020;
 
@@ -27,6 +29,13 @@ const CMD_ERASE: u8 = 0x45;
 const XFER_READ_PAGE: u8 = 0x72;
 const XFER_WRITE_PAGE: u8 = 0x77;
 
+#[derive(Debug, Clone)]
+pub enum ReadType {
+    Normal,
+    Bootloader,
+    Full
+}
+
 impl Programmer<'static> {
     pub fn new(part: &'static Part) -> Self {
         let device = Self::find_isp_device(part);
@@ -37,9 +46,9 @@ impl Programmer<'static> {
     }
 
     fn find_isp_device(part: &Part) -> HidDevice {
-        for attempt in 1..5 {
+        for attempt in 1..MAX_RETRIES+1 {
             if attempt > 1 {
-                info!("Retrying... Attempt {}", attempt);
+                info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
             }
 
             let api = HidApi::new().expect("Couldn't load HidApi");
@@ -84,10 +93,14 @@ impl Programmer<'static> {
         let _ = device.send_feature_report(&cmd); // ignore errors, many might be encountered here
     }
 
-    pub fn read_cycle(&self) -> Vec<u8> {
+    pub fn read_cycle(&self, read_type: ReadType) -> Vec<u8> {
         self.magic_sauce();
 
-        return self.read();
+        return match read_type {
+            ReadType::Normal => self.read(0, self.part.flash_size),
+            ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size),
+            ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size)
+        };
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) {
@@ -105,7 +118,7 @@ impl Programmer<'static> {
 
         self.erase();
         self.write(&firmware);
-        let written = self.read();
+        let written = self.read(0, self.part.flash_size);
 
         info!("Verifying...");
         match util::verify(&firmware, &written) {
@@ -138,21 +151,22 @@ impl Programmer<'static> {
         self.device.send_feature_report(&cmd).unwrap();
     }
 
-    fn read(&self) -> Vec<u8> {
+    fn read(&self, start_addr: usize, length: usize) -> Vec<u8> {
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
             CMD_INIT_READ,
-            0,
-            0,
-            (self.part.flash_size & 0xff) as u8,
-            (self.part.flash_size >> 8) as u8,
+            (start_addr & 0xff) as u8,
+            (start_addr >> 8) as u8,
+            (length & 0xff) as u8,
+            (length >> 8) as u8,
         ];
         self.device.send_feature_report(&cmd).unwrap();
 
         let page_size = self.part.page_size;
+        let num_page = length / page_size;
         let mut result: Vec<u8> = vec![];
-        for i in 0..self.part.num_pages() {
-            debug!("Reading page {} @ offset {:#06x}", i, i * page_size);
+        for i in 0..num_page {
+            debug!("Reading page {} @ offset {:#06x}", i, start_addr + i * page_size);
             self.read_page(&mut result);
         }
         return result;
