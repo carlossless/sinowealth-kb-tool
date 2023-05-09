@@ -6,7 +6,7 @@ license = "MIT"
 
 [dependencies]
 clap = "4.1"
-hidapi = "2.2"
+rusb = "0.9"
 ihex = "3.0"
 ihex_ext = "1.0"
 

@@ -13,6 +13,8 @@ pub use programmer::*;
 mod util;
 pub use util::*;
 
+mod hid;
+
 fn cli() -> Command {
     return Command::new("sinowealth-kb-tool")
         .about("A programming tool for Sinowealth Gaming KB devices")
