@@ -54,12 +54,18 @@ impl Programmer<'static> {
 
             let kb_device_info = open_device_with_vid_pid(part.vendor_id, part.product_id);
 
-            let Some(device_info) = kb_device_info else {
+            let Some(mut device_info) = kb_device_info else {
                 info!("No KB found. Trying bootloader directly...");
-                let device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+                let mut device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+                if device.kernel_driver_active(1).unwrap() {
+                    device.detach_kernel_driver(1).unwrap();
+                }
                 info!("Connected!");
                 return device;
             };
+            if device_info.kernel_driver_active(1).unwrap() {
+                device_info.detach_kernel_driver(1).unwrap();
+            }
 
             info!("Found Device. Entering ISP mode...");
             Self::enter_isp_mode(&device_info);
@@ -74,7 +80,10 @@ impl Programmer<'static> {
                 continue;
             };
 
-            let device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+            let mut device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+            if device.kernel_driver_active(1).unwrap() {
+                device.detach_kernel_driver(1).unwrap();
+            }
             info!("Connected!");
 
             return device;
