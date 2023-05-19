@@ -21,7 +21,10 @@ impl HidDevice {
             .last()
             .unwrap();
 
-        handle.set_auto_detach_kernel_driver(true).unwrap();
+        #[cfg(any(target_os = "linux"))]
+        if handle.kernel_driver_active(interface_number).unwrap() {
+            handle.detach_kernel_driver(interface_number).unwrap();
+        }
 
         return Some(HidDevice {
             handle: handle,

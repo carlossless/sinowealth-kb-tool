@@ -1,4 +1,3 @@
-use rusb::*;
 use log::*;
 use std::{thread, time};
 
@@ -55,9 +54,9 @@ impl Programmer<'static> {
 
             let kb_device_info = HidDevice::open(part.vendor_id, part.product_id);
 
-            let Some(mut device_info) = kb_device_info else {
+            let Some(device_info) = kb_device_info else {
                 info!("No KB found. Trying bootloader directly...");
-                let mut device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+                let device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
                 info!("Connected!");
                 return device;
             };
@@ -75,7 +74,7 @@ impl Programmer<'static> {
                 continue;
             };
 
-            let mut device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+            let device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
             info!("Connected!");
 
             return device;
