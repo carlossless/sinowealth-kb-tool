@@ -2,12 +2,13 @@ use rusb::*;
 use log::*;
 use std::{thread, time};
 
+use crate::HidDevice;
+
 use super::part::*;
 use super::util;
-use super::hid;
 
 pub struct Programmer<'a> {
-    device: DeviceHandle<GlobalContext>,
+    device: HidDevice,
     part: &'a Part,
 }
 
@@ -46,26 +47,20 @@ impl Programmer<'static> {
         };
     }
 
-    fn find_isp_device(part: &Part) -> DeviceHandle<GlobalContext> {
+    fn find_isp_device(part: &Part) -> HidDevice {
         for attempt in 1..MAX_RETRIES+1 {
             if attempt > 1 {
                 info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
             }
 
-            let kb_device_info = open_device_with_vid_pid(part.vendor_id, part.product_id);
+            let kb_device_info = HidDevice::open(part.vendor_id, part.product_id);
 
             let Some(mut device_info) = kb_device_info else {
                 info!("No KB found. Trying bootloader directly...");
-                let mut device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
-                if device.kernel_driver_active(1).unwrap() {
-                    device.detach_kernel_driver(1).unwrap();
-                }
+                let mut device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
                 info!("Connected!");
                 return device;
             };
-            if device_info.kernel_driver_active(1).unwrap() {
-                device_info.detach_kernel_driver(1).unwrap();
-            }
 
             info!("Found Device. Entering ISP mode...");
             Self::enter_isp_mode(&device_info);
@@ -73,17 +68,14 @@ impl Programmer<'static> {
             info!("Waiting for bootloader device...");
             thread::sleep(time::Duration::from_millis(1000));
 
-            let kb_device_info = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID);
+            let kb_device_info = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID);
 
             let Some(_) = kb_device_info else {
                 info!("Device didn't come up...");
                 continue;
             };
 
-            let mut device = open_device_with_vid_pid(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
-            if device.kernel_driver_active(1).unwrap() {
-                device.detach_kernel_driver(1).unwrap();
-            }
+            let mut device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
             info!("Connected!");
 
             return device;
@@ -91,35 +83,9 @@ impl Programmer<'static> {
         panic!("Couldn't find ISP device");
     }
 
-    fn enter_isp_mode(handle: &DeviceHandle<GlobalContext>) {
+    fn enter_isp_mode(handle: &HidDevice) {
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
-        let _ = Self::send_feature_report(handle, &cmd); // ignore errors, many might be encountered here
-    }
-
-    fn get_feature_report(handle: &DeviceHandle<GlobalContext>, buf: &mut [u8]) -> Result<usize> {
-        let report_number = buf[0] as u16;
-
-        return handle.read_control(
-            constants::LIBUSB_REQUEST_TYPE_CLASS | constants::LIBUSB_RECIPIENT_INTERFACE | constants::LIBUSB_ENDPOINT_IN,
-            0x01,
-            (3/*HID feature*/ << 8) | report_number,
-            1, // fix
-            buf,
-            time::Duration::from_millis(1000)
-        );
-    }
-
-    fn send_feature_report(handle: &DeviceHandle<GlobalContext>, buf: &[u8]) -> Result<usize> {
-        let report_number = buf[0] as u16;
-
-        return handle.write_control(
-            constants::LIBUSB_REQUEST_TYPE_CLASS | constants::LIBUSB_RECIPIENT_INTERFACE | constants::LIBUSB_ENDPOINT_OUT,
-            0x09,
-            (3/*HID feature*/ << 8) | report_number,
-            1, // fix
-            buf,
-            time::Duration::from_millis(1000)
-        );
+        let _ = handle.send_feature_report(&cmd); // ignore errors, many might be encountered here
     }
 
     pub fn read_cycle(&self, read_type: ReadType) -> Vec<u8> {
@@ -177,7 +143,7 @@ impl Programmer<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        Self::send_feature_report(&self.device, &cmd).unwrap();
+        self.device.send_feature_report(&cmd).unwrap();
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Vec<u8> {
@@ -189,7 +155,7 @@ impl Programmer<'static> {
             (length & 0xff) as u8,
             (length >> 8) as u8,
         ];
-        Self::send_feature_report(&self.device, &cmd).unwrap();
+        self.device.send_feature_report(&cmd).unwrap();
 
         let page_size = self.part.page_size;
         let num_page = length / page_size;
@@ -206,7 +172,7 @@ impl Programmer<'static> {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        Self::get_feature_report(&self.device, &mut xfer_buf).unwrap();
+        self.device.get_feature_report(&mut xfer_buf).unwrap();
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
     }
 
@@ -221,7 +187,7 @@ impl Programmer<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        Self::send_feature_report(&self.device, &cmd).unwrap();
+        self.device.send_feature_report(&cmd).unwrap();
 
         let page_size = self.part.page_size;
         for i in 0..self.part.num_pages() {
@@ -236,7 +202,7 @@ impl Programmer<'static> {
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..page_size + 2].clone_from_slice(&buf);
-        Self::send_feature_report(&self.device, &xfer_buf).unwrap();
+        self.device.send_feature_report(&xfer_buf).unwrap();
     }
 
     fn erase(&self) {
@@ -249,7 +215,7 @@ impl Programmer<'static> {
             CMD_ERASE,
             CMD_ERASE,
         ];
-        Self::send_feature_report(&self.device, &cmd).unwrap();
+        self.device.send_feature_report(&cmd).unwrap();
         thread::sleep(time::Duration::from_millis(2000));
     }
 
@@ -264,6 +230,6 @@ impl Programmer<'static> {
             CMD_MAGIC_SAUCE,
             CMD_MAGIC_SAUCE,
         ];
-        Self::send_feature_report(&self.device, &cmd).unwrap();
+        self.device.send_feature_report(&cmd).unwrap();
     }
 }

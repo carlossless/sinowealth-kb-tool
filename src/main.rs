@@ -14,6 +14,7 @@ mod util;
 pub use util::*;
 
 mod hid;
+pub use hid::*;
 
 fn cli() -> Command {
     return Command::new("sinowealth-kb-tool")
