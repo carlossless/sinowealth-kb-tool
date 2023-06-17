@@ -36,19 +36,11 @@ jobs:
         include:
           - TARGET: x86_64-unknown-linux-gnu
             OS: ubuntu-latest
-          - TARGET: x86_64-unknown-linux-musl
-            OS: ubuntu-latest
           - TARGET: aarch64-unknown-linux-gnu
-            OS: ubuntu-latest
-          - TARGET: aarch64-unknown-linux-musl
             OS: ubuntu-latest
           - TARGET: armv7-unknown-linux-gnueabihf
             OS: ubuntu-latest
-          - TARGET: armv7-unknown-linux-musleabihf
-            OS: ubuntu-latest
           - TARGET: arm-unknown-linux-gnueabihf
-            OS: ubuntu-latest
-          - TARGET: arm-unknown-linux-musleabihf
             OS: ubuntu-latest
           - TARGET: x86_64-apple-darwin
             OS: macos-latest
@@ -77,22 +69,15 @@ jobs:
           # we make cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
             sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
-            sudo apt-get install -y musl-tools
           fi
 
           # some additional configuration for cross-compilation on linux
           cat >>~/.cargo/config <<EOF
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
-          [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-linux-gnu-gcc"
           [target.armv7-unknown-linux-gnueabihf]
           linker = "arm-linux-gnueabihf-gcc"
-          [target.armv7-unknown-linux-musleabihf]
-          linker = "arm-linux-gnueabihf-gcc"
           [target.arm-unknown-linux-gnueabihf]
-          linker = "arm-linux-gnueabihf-gcc"
-          [target.arm-unknown-linux-musleabihf]
           linker = "arm-linux-gnueabihf-gcc"
           EOF
       - name: Install rust target
@@ -125,7 +110,7 @@ jobs:
             ./artifacts
 
   deploy:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
