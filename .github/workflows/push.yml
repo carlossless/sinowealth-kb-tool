@@ -77,6 +77,7 @@ jobs:
           # we make cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
             sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
+            sudo apt-get install -y musl-tools
           fi
 
           # some additional configuration for cross-compilation on linux
