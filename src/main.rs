@@ -86,7 +86,7 @@ fn main() {
             let digest = md5::compute(&result);
             println!("MD5: {:x}", digest);
 
-            let ihex = to_ihex(result);
+            let ihex = to_ihex(result).expect("Failed converting to IHEX");
             fs::write(output_file, ihex).expect("Unable to write file");
         }
         Some(("write", sub_matches)) => {
