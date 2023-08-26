@@ -81,7 +81,7 @@ fn main() {
                 _ => ReadType::Normal,
             };
 
-            let result = ISPDevice::new(part).read_cycle(read_type);
+            let result = ISPDevice::new(part).unwrap().read_cycle(read_type);
 
             let digest = md5::compute(&result);
             println!("MD5: {:x}", digest);
@@ -112,7 +112,7 @@ fn main() {
                 firmware.resize(part.flash_size, 0);
             }
 
-            match ISPDevice::new(part).write_cycle(&mut firmware) {
+            match ISPDevice::new(part).unwrap().write_cycle(&mut firmware) {
                 Err(e) => {
                     error!("{}", e.to_message());
                     process::exit(1);
@@ -128,7 +128,7 @@ fn main() {
 
             let part = PARTS.get(part_name).unwrap();
 
-            ISPDevice::new(part).erase_cycle();
+            ISPDevice::new(part).unwrap().erase_cycle();
         }
         _ => unreachable!(),
     }

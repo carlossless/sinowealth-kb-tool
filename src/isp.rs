@@ -1,6 +1,7 @@
 use hidapi::DeviceInfo;
 use log::*;
 use std::{thread, time};
+use thiserror::Error;
 
 use crate::VerificationError;
 
@@ -45,76 +46,111 @@ pub enum ReadType {
     Full,
 }
 
+#[derive(Debug, Error)]
+pub enum ISPError {
+    #[error("Duplicate devices found")]
+    DuplicateDevices(String, String),
+    #[error("Device not found")]
+    NotFound
+}
+
 impl ISPDevice<'static> {
-    pub fn new(part: &'static Part) -> Self {
-        let (request_device, data_device) = Self::find_isp_device(part);
-        return Self {
+    fn hidapi() -> HidApi {
+        let api = HidApi::new().unwrap();
+
+        #[cfg(target_os = "macos")]
+        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
+
+        return api;
+    }
+
+    pub fn new(part: &'static Part) -> Result<Self, ISPError> {
+        let (request_device, data_device) = Self::find_isp_device(part)?;
+        return Ok(Self {
             request_device: request_device,
             data_device: data_device,
             part: &part,
-        };
+        });
     }
 
-    fn request_device_predicate(device_info: &&DeviceInfo) -> bool {
-        if device_info.vendor_id() != GAMING_KB_VENDOR_ID || device_info.product_id() != GAMING_KB_PRODUCT_ID {
-            return false;
+    fn fetch_kb_devices() -> Result<(HidDevice, HidDevice), ISPError> {
+        let api = Self::hidapi();
+
+        let mut request_device: Option<&DeviceInfo> = None;
+        let mut data_device: Option<&DeviceInfo> = None;
+
+        for device_info in api.device_list() {
+            if !(device_info.vendor_id() == GAMING_KB_VENDOR_ID && device_info.product_id() == GAMING_KB_PRODUCT_ID) {
+                continue;
+            }
+
+            if !(device_info.usage() == 1 && device_info.usage_page() == 0xff00) {
+                continue;
+            }
+
+            let path = device_info.path();
+            let path_str = path.to_str().unwrap();
+
+            debug!("Found: {}", path_str);
+
+            #[cfg(target_os = "windows")] {
+                if path_str.contains("Col02") {
+                    if let Some(request_device) = request_device {
+                        return Err(ISPError::DuplicateDevices(
+                            request_device.path().to_str().unwrap().to_owned(),
+                            path_str.to_owned())
+                        );
+                    }
+                    request_device = Some(device_info);
+                    continue;
+                }
+
+                if path_str.contains("Col03") {
+                    if let Some(data_device) = data_device {
+                        return Err(ISPError::DuplicateDevices(
+                            data_device.path().to_str().unwrap().to_owned(),
+                            path_str.to_owned())
+                        );
+                    }
+                    data_device = Some(device_info);
+                    continue;
+                }
+            };
+
+            #[cfg(not(target_os = "windows"))] {
+                if let Some(request_device) = request_device {
+                    if request_device.path() != path {
+                        warn!("Duplicate device found. Only the first one will be used");
+                    }
+                    continue;
+                } else {
+                    request_device = Some(device_info);
+                    data_device = Some(device_info);
+                    continue;
+                }
+            };
         }
-        #[cfg(target_os = "windows")] {
-            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col02");
-        };
-        return true;
-    }
 
-    fn data_device_predicate(device_info: &&DeviceInfo) -> bool {
-        if device_info.vendor_id() != GAMING_KB_VENDOR_ID || device_info.product_id() != GAMING_KB_PRODUCT_ID {
-            return false;
+        if let (Some(request_device), Some(data_device)) = (request_device, data_device) {
+            debug!("Opening: req - {:?} / data - {:?}", request_device.path(), data_device.path());
+
+            return Ok((
+                api.open_path(request_device.path()).unwrap(),
+                api.open_path(data_device.path()).unwrap()
+            ));
+        } else {
+            return Err(ISPError::NotFound);
         }
-        #[cfg(target_os = "windows")] {
-            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col03");
-        };
-        return true;
     }
 
-    fn open_isp_device() -> Option<(HidDevice, HidDevice)> {
-        let api = HidApi::new().unwrap();
+    fn open_isp_device() -> Result<(HidDevice, HidDevice), ISPError> {
+        return Self::fetch_kb_devices()
+    }
 
-        #[cfg(target_os = "macos")]
-        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
+    fn switch_kb_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
+        let api = Self::hidapi();
 
         let request_device_info = api.device_list()
-            .filter(Self::request_device_predicate)
-            .next();
-
-        let Some(request_device_info) = request_device_info else {
-            info!("Request Device didn't come up...");
-            return None;
-        };
-
-        let data_device_info = api.device_list()
-            .filter(Self::data_device_predicate)
-            .next();
-
-        let Some(data_device_info) = data_device_info else {
-            info!("Read Device didn't come up...");
-            return None;
-        };
-
-        println!("Opening: {:?}", request_device_info.path());
-        println!("Opening: {:?}", data_device_info.path());
-
-        return Some((
-            api.open_path(request_device_info.path()).unwrap(),
-            api.open_path(data_device_info.path()).unwrap(),
-        ));
-    }
-
-    fn switch_kb_device(part: &Part) -> Option<(HidDevice, HidDevice)> {
-        let api = HidApi::new().unwrap();
-
-        #[cfg(target_os = "macos")]
-        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
-
-        let device_info = api.device_list()
             .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1)
             .filter(|d| {
                 #[cfg(target_os = "windows")] {
@@ -124,14 +160,14 @@ impl ISPDevice<'static> {
             })
             .next();
 
-        let Some(device_info) = device_info else {
+        let Some(request_device_info) = request_device_info else {
             info!("Device didn't come up...");
-            return None;
+            return Err(ISPError::NotFound);
         };
 
-        println!("Opening: {:?}", device_info.path());
+        debug!("Opening: {:?}", request_device_info.path());
 
-        let device = api.open_path(device_info.path()).unwrap();
+        let device = api.open_path(request_device_info.path()).unwrap();
 
         info!("Found Device. Entering ISP mode...");
         Self::enter_isp_mode(&device);
@@ -139,31 +175,31 @@ impl ISPDevice<'static> {
         info!("Waiting for bootloader device...");
         thread::sleep(time::Duration::from_millis(1000));
 
-        let Some(isp_device) = Self::open_isp_device() else {
+        let Ok(isp_device) = Self::open_isp_device() else {
             info!("ISP Device didn't come up...");
-            return None;
+            return Err(ISPError::NotFound);
         };
 
-        return Some(isp_device);
+        return Ok(isp_device);
     }
 
-    fn find_isp_device(part: &Part) -> (HidDevice, HidDevice) {
+    fn find_isp_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
         for attempt in 1..MAX_RETRIES + 1 {
             if attempt > 1 {
                 info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
             }
 
-            if let Some(device) = Self::switch_kb_device(part) {
+            if let Ok(devices) = Self::switch_kb_device(part) {
                 info!("Connected!");
-                return device;
+                return Ok(devices);
             }
             info!("No KB found. Trying bootloader directly...");
-            if let Some(device) = Self::open_isp_device() {
+            if let Ok(devices) = Self::open_isp_device() {
                 info!("Connected!");
-                return device;
+                return Ok(devices);
             }
         }
-        panic!("Couldn't find ISP device");
+        return Err(ISPError::NotFound);
     }
 
     fn enter_isp_mode(handle: &HidDevice) {
