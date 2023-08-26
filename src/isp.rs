@@ -70,7 +70,7 @@ impl ISPDevice<'static> {
         api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
 
         let device_info = api.device_list()
-            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1)
+            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1 && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col4"))
             .next();
 
         let Some(device_info) = device_info else {
