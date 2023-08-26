@@ -1,3 +1,4 @@
+use hidapi::DeviceInfo;
 use log::*;
 use std::{thread, time};
 
@@ -54,17 +55,34 @@ impl ISPDevice<'static> {
         };
     }
 
+    fn read_device_predicate(device_info: &&DeviceInfo) -> bool {
+        if device_info.vendor_id() != GAMING_KB_VENDOR_ID || device_info.product_id() != GAMING_KB_PRODUCT_ID {
+            return false;
+        }
+        #[cfg(target_os = "windows")] {
+            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col03");
+        };
+        return true;
+    }
+
+    fn write_device_predicate(device_info: &&DeviceInfo) -> bool {
+        if device_info.vendor_id() != GAMING_KB_VENDOR_ID || device_info.product_id() != GAMING_KB_PRODUCT_ID {
+            return false;
+        }
+        #[cfg(target_os = "windows")] {
+            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col02");
+        };
+        return true;
+    }
+
     fn open_isp_device() -> Option<(HidDevice, HidDevice)> {
         let api = HidApi::new().unwrap();
 
         #[cfg(target_os = "macos")]
-        api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
+        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
 
         let read_device_info = api.device_list()
-            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID)
-            .filter(
-                |d| String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col03")
-        )
+            .filter(Self::read_device_predicate)
             .next();
 
         let Some(read_device_info) = read_device_info else {
@@ -73,11 +91,8 @@ impl ISPDevice<'static> {
         };
 
         let write_device_info = api.device_list()
-            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID)
-            .filter(
-            |d| String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col02")
-        )
-        .next();
+            .filter(Self::write_device_predicate)
+            .next();
 
         let Some(write_device_info) = write_device_info else {
             info!("Write Device didn't come up...");
@@ -97,10 +112,16 @@ impl ISPDevice<'static> {
         let api = HidApi::new().unwrap();
 
         #[cfg(target_os = "macos")]
-        api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
+        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
 
         let device_info = api.device_list()
-            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1 && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col05"))
+            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1)
+            .filter(|d| {
+                #[cfg(target_os = "windows")] {
+                    return String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col05");
+                }
+                return true;
+            })
             .next();
 
         let Some(device_info) = device_info else {
