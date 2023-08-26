@@ -1,3 +1,4 @@
+use hidapi::DeviceInfo;
 use log::*;
 use std::{thread, time};
 
@@ -64,10 +65,20 @@ impl ISPDevice<'static> {
 
     fn switch_kb_device(part: &Part) -> Option<HidDevice> {
         let api = HidApi::new().unwrap();
-        let Ok(device) = api.open(part.vendor_id, part.product_id) else {
+
+        #[cfg(target_os = "macos")]
+        api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
+
+        let device_info = api.device_list()
+            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1)
+            .next();
+
+        let Some(device_info) = device_info else {
             info!("Device didn't come up...");
             return None;
         };
+
+        let device = api.open_path(device_info.path()).unwrap();
 
         info!("Found Device. Entering ISP mode...");
         Self::enter_isp_mode(&device);
@@ -76,7 +87,7 @@ impl ISPDevice<'static> {
         thread::sleep(time::Duration::from_millis(1000));
 
         let Some(isp_device) = Self::open_isp_device() else {
-            info!("Device didn't come up...");
+            info!("ISP Device didn't come up...");
             return None;
         };
 
