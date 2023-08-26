@@ -54,7 +54,10 @@ impl ISPDevice<'static> {
 
     fn open_isp_device() -> Option<HidDevice> {
         let api = HidApi::new().unwrap();
+
+        #[cfg(target_os = "macos")]
         api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
+
         api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
         return api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).ok();
     }
