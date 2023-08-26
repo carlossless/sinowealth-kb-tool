@@ -51,7 +51,7 @@ pub enum ISPError {
     #[error("Duplicate devices found")]
     DuplicateDevices(String, String),
     #[error("Device not found")]
-    NotFound
+    NotFound,
 }
 
 impl ISPDevice<'static> {
@@ -80,7 +80,9 @@ impl ISPDevice<'static> {
         let mut data_device: Option<&DeviceInfo> = None;
 
         for device_info in api.device_list() {
-            if !(device_info.vendor_id() == GAMING_KB_VENDOR_ID && device_info.product_id() == GAMING_KB_PRODUCT_ID) {
+            if !(device_info.vendor_id() == GAMING_KB_VENDOR_ID
+                && device_info.product_id() == GAMING_KB_PRODUCT_ID)
+            {
                 continue;
             }
 
@@ -93,13 +95,14 @@ impl ISPDevice<'static> {
 
             debug!("Found: {}", path_str);
 
-            #[cfg(target_os = "windows")] {
+            #[cfg(target_os = "windows")]
+            {
                 if path_str.contains("Col02") {
                     if let Some(request_device) = request_device {
                         return Err(ISPError::DuplicateDevices(
                             request_device.path().to_str().unwrap().to_owned(),
-                            path_str.to_owned())
-                        );
+                            path_str.to_owned(),
+                        ));
                     }
                     request_device = Some(device_info);
                     continue;
@@ -109,15 +112,16 @@ impl ISPDevice<'static> {
                     if let Some(data_device) = data_device {
                         return Err(ISPError::DuplicateDevices(
                             data_device.path().to_str().unwrap().to_owned(),
-                            path_str.to_owned())
-                        );
+                            path_str.to_owned(),
+                        ));
                     }
                     data_device = Some(device_info);
                     continue;
                 }
             };
 
-            #[cfg(not(target_os = "windows"))] {
+            #[cfg(not(target_os = "windows"))]
+            {
                 if let Some(request_device) = request_device {
                     if request_device.path() != path {
                         warn!("Duplicate device found. Only the first one will be used");
@@ -132,11 +136,15 @@ impl ISPDevice<'static> {
         }
 
         if let (Some(request_device), Some(data_device)) = (request_device, data_device) {
-            debug!("Opening: req - {:?} / data - {:?}", request_device.path(), data_device.path());
+            debug!(
+                "Opening: req - {:?} / data - {:?}",
+                request_device.path(),
+                data_device.path()
+            );
 
             return Ok((
                 api.open_path(request_device.path()).unwrap(),
-                api.open_path(data_device.path()).unwrap()
+                api.open_path(data_device.path()).unwrap(),
             ));
         } else {
             return Err(ISPError::NotFound);
@@ -144,17 +152,25 @@ impl ISPDevice<'static> {
     }
 
     fn open_isp_device() -> Result<(HidDevice, HidDevice), ISPError> {
-        return Self::fetch_kb_devices()
+        return Self::fetch_kb_devices();
     }
 
     fn switch_kb_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
         let api = Self::hidapi();
 
-        let request_device_info = api.device_list()
-            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1)
+        let request_device_info = api
+            .device_list()
             .filter(|d| {
-                #[cfg(target_os = "windows")] {
-                    return String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col05");
+                d.vendor_id() == part.vendor_id
+                    && d.product_id() == part.product_id
+                    && d.interface_number() == 1
+            })
+            .filter(|d| {
+                #[cfg(target_os = "windows")]
+                {
+                    return String::from_utf8_lossy(d.path().to_bytes())
+                        .to_string()
+                        .contains("Col05");
                 }
                 return true;
             })

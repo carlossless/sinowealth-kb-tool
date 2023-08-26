@@ -16,7 +16,7 @@ pub enum ConversionError {
     #[error("Error while unpacking IHEX into array")]
     Unpacking(#[from] UnpackingError),
     #[error("Errow while writing IHEX to string")]
-    Serializing(#[from] WriterError)
+    Serializing(#[from] WriterError),
 }
 
 pub fn to_ihex(byte_array: Vec<u8>) -> Result<String, ConversionError> {
@@ -28,14 +28,12 @@ pub fn to_ihex(byte_array: Vec<u8>) -> Result<String, ConversionError> {
         });
     }
     result.push(Record::EndOfFile);
-    return create_object_file_representation(&result)
-        .map_err(ConversionError::from);
+    return create_object_file_representation(&result).map_err(ConversionError::from);
 }
 
 pub fn from_ihex(ihex_string: &str, max_length: usize) -> Result<Vec<u8>, ConversionError> {
     let mut reader = Reader::new(ihex_string);
-    return unpack_records(&mut reader, max_length)
-        .map_err(ConversionError::from);
+    return unpack_records(&mut reader, max_length).map_err(ConversionError::from);
 }
 
 fn unpack_records(
