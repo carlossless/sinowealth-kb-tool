@@ -6,13 +6,13 @@ use std::{fs, process};
 
 mod part;
 mod isp;
-mod hid;
+// mod hid;
 mod util;
 mod ihex;
 
 pub use crate::part::*;
 pub use crate::isp::*;
-pub use crate::hid::*;
+// pub use crate::hid::*;
 pub use crate::ihex::*;
 pub use crate::util::*;
 

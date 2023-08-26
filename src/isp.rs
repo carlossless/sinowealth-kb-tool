@@ -1,11 +1,14 @@
 use log::*;
 use std::{thread, time};
 
-use crate::HidDevice;
 use crate::VerificationError;
 
 use super::part::*;
 use super::util;
+
+extern crate hidapi;
+
+use hidapi::{HidApi, HidDevice};
 
 pub struct ISPDevice<'a> {
     device: HidDevice,
@@ -49,33 +52,49 @@ impl ISPDevice<'static> {
         };
     }
 
+    fn open_isp_device() -> Option<HidDevice> {
+        let api = HidApi::new().unwrap();
+        api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
+        api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+        return api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).ok();
+    }
+
+    fn switch_kb_device(part: &Part) -> Option<HidDevice> {
+        let api = HidApi::new().unwrap();
+        let Ok(device) = api.open(part.vendor_id, part.product_id) else {
+            info!("Device didn't come up...");
+            return None;
+        };
+
+        info!("Found Device. Entering ISP mode...");
+        Self::enter_isp_mode(&device);
+
+        info!("Waiting for bootloader device...");
+        thread::sleep(time::Duration::from_millis(1000));
+
+        let Some(isp_device) = Self::open_isp_device() else {
+            info!("Device didn't come up...");
+            return None;
+        };
+
+        return Some(isp_device);
+    }
+
     fn find_isp_device(part: &Part) -> HidDevice {
         for attempt in 1..MAX_RETRIES + 1 {
             if attempt > 1 {
                 info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
             }
 
-            let Some(device) = HidDevice::open(part.vendor_id, part.product_id) else {
-                info!("No KB found. Trying bootloader directly...");
-                let isp_device = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
+            if let Some(device) = Self::switch_kb_device(part) {
                 info!("Connected!");
-                return isp_device;
-            };
-
-            info!("Found Device. Entering ISP mode...");
-            Self::enter_isp_mode(&device);
-
-            info!("Waiting for bootloader device...");
-            thread::sleep(time::Duration::from_millis(1000));
-
-            let Some(isp_device) = HidDevice::open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID) else {
-                info!("Device didn't come up...");
-                continue;
-            };
-
-            info!("Connected!");
-
-            return isp_device;
+                return device;
+            }
+            info!("No KB found. Trying bootloader directly...");
+            if let Some(device) = Self::open_isp_device() {
+                info!("Connected!");
+                return device;
+            }
         }
         panic!("Couldn't find ISP device");
     }
@@ -106,9 +125,9 @@ impl ISPDevice<'static> {
         // We need to make modifications to the expected payload to account for this.
         if firmware[length - 5] == LJMP_OPCODE {
             firmware[0] = LJMP_OPCODE;
+            firmware.copy_within((length - 4)..(length - 2), 1); // Copy LJMP address
+            firmware[(length - 5)..(length - 2)].fill(0); // Cleanup
         }
-        firmware.copy_within((length - 4)..(length - 2), 1); // Copy LJMP address
-        firmware[(length - 5)..(length - 2)].fill(0); // Cleanup
 
         info!("Verifying...");
         util::verify(&firmware, &written)?;
