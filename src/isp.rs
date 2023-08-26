@@ -1,22 +1,15 @@
+use std::{thread, time};
+
 use hidapi::DeviceInfo;
 use log::*;
-use std::{thread, time};
 use thiserror::Error;
 
+use super::{part::*, util};
 use crate::VerificationError;
-
-use super::part::*;
-use super::util;
 
 extern crate hidapi;
 
 use hidapi::{HidApi, HidDevice};
-
-pub struct ISPDevice<'a> {
-    request_device: HidDevice,
-    data_device: HidDevice,
-    part: &'a Part,
-}
 
 const MAX_RETRIES: usize = 10;
 
@@ -39,11 +32,10 @@ const XFER_WRITE_PAGE: u8 = 0x77;
 
 const LJMP_OPCODE: u8 = 0x02;
 
-#[derive(Debug, Clone)]
-pub enum ReadType {
-    Normal,
-    Bootloader,
-    Full,
+pub struct ISPDevice<'a> {
+    request_device: HidDevice,
+    data_device: HidDevice,
+    part: &'a Part,
 }
 
 #[derive(Debug, Error)]
@@ -52,6 +44,13 @@ pub enum ISPError {
     DuplicateDevices(String, String),
     #[error("Device not found")]
     NotFound,
+}
+
+#[derive(Debug, Clone)]
+pub enum ReadType {
+    Normal,
+    Bootloader,
+    Full,
 }
 
 impl ISPDevice<'static> {

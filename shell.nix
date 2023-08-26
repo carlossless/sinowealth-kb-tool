@@ -2,8 +2,7 @@
 with pkgs;
 mkShell {
   buildInputs = [
-    rustc
-    cargo
+    rust-bin.beta.latest.default
     pkg-config
     libusb1
   ] ++
@@ -15,10 +14,4 @@ mkShell {
     darwin.apple_sdk.frameworks.AppKit
     iconv
   ]);
-
-  RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-
-  shellHook = ''
-    echo "Entered the dev shell! $(rustc --version) $(cargo --version)"
-  '';
 }

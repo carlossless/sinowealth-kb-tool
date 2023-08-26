@@ -1,8 +1,8 @@
+use std::{fs, io::Read, process};
+
 use clap::*;
 use log::*;
 use simple_logger::SimpleLogger;
-use std::io::Read;
-use std::{fs, process};
 
 mod isp;
 mod part;
@@ -10,11 +10,8 @@ mod part;
 mod ihex;
 mod util;
 
-pub use crate::isp::*;
-pub use crate::part::*;
 // pub use crate::hid::*;
-pub use crate::ihex::*;
-pub use crate::util::*;
+pub use crate::{ihex::*, isp::*, part::*, util::*};
 
 fn cli() -> Command {
     return Command::new("sinowealth-kb-tool")
