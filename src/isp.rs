@@ -78,6 +78,8 @@ impl ISPDevice<'static> {
             return None;
         };
 
+        println!("Opening: {:?}", device_info.path());
+
         let device = api.open_path(device_info.path()).unwrap();
 
         info!("Found Device. Entering ISP mode...");
