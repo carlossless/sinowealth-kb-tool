@@ -1,4 +1,3 @@
-use hidapi::DeviceInfo;
 use log::*;
 use std::{thread, time};
 
@@ -12,7 +11,8 @@ extern crate hidapi;
 use hidapi::{HidApi, HidDevice};
 
 pub struct ISPDevice<'a> {
-    device: HidDevice,
+    read_device: HidDevice,
+    write_device: HidDevice,
     part: &'a Part,
 }
 
@@ -46,34 +46,54 @@ pub enum ReadType {
 
 impl ISPDevice<'static> {
     pub fn new(part: &'static Part) -> Self {
-        let device = Self::find_isp_device(part);
+        let (read_device, write_device) = Self::find_isp_device(part);
         return Self {
-            device: device,
+            read_device: read_device,
+            write_device: write_device,
             part: &part,
         };
     }
 
-    fn open_isp_device() -> Option<HidDevice> {
+    fn open_isp_device() -> Option<(HidDevice, HidDevice)> {
         let api = HidApi::new().unwrap();
 
         #[cfg(target_os = "macos")]
         api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
 
-        let device_info = api.device_list()
-            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col02"))
+        let read_device_info = api.device_list()
+            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID)
+            .filter(
+                |d| String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col03")
+        )
             .next();
 
-        let Some(device_info) = device_info else {
-            info!("Device didn't come up...");
+        let Some(read_device_info) = read_device_info else {
+            info!("Read Device didn't come up...");
             return None;
         };
 
-        println!("Opening: {:?}", device_info.path());
+        let write_device_info = api.device_list()
+            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID)
+            .filter(
+            |d| String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col02")
+        )
+        .next();
 
-        return api.open_path(device_info.path()).ok();
+        let Some(write_device_info) = write_device_info else {
+            info!("Write Device didn't come up...");
+            return None;
+        };
+
+        println!("Opening: {:?}", read_device_info.path());
+        println!("Opening: {:?}", write_device_info.path());
+
+        return Some((
+            api.open_path(read_device_info.path()).unwrap(),
+            api.open_path(write_device_info.path()).unwrap()
+        ));
     }
 
-    fn switch_kb_device(part: &Part) -> Option<HidDevice> {
+    fn switch_kb_device(part: &Part) -> Option<(HidDevice, HidDevice)> {
         let api = HidApi::new().unwrap();
 
         #[cfg(target_os = "macos")]
@@ -106,7 +126,7 @@ impl ISPDevice<'static> {
         return Some(isp_device);
     }
 
-    fn find_isp_device(part: &Part) -> HidDevice {
+    fn find_isp_device(part: &Part) -> (HidDevice, HidDevice) {
         for attempt in 1..MAX_RETRIES + 1 {
             if attempt > 1 {
                 info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
@@ -178,7 +198,7 @@ impl ISPDevice<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        self.device.send_feature_report(&cmd).unwrap();
+        self.write_device.send_feature_report(&cmd).unwrap();
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Vec<u8> {
@@ -190,7 +210,7 @@ impl ISPDevice<'static> {
             (length & 0xff) as u8,
             (length >> 8) as u8,
         ];
-        self.device.send_feature_report(&cmd).unwrap();
+        self.write_device.send_feature_report(&cmd).unwrap();
 
         let page_size = self.part.page_size;
         let num_page = length / page_size;
@@ -211,7 +231,7 @@ impl ISPDevice<'static> {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        self.device.get_feature_report(&mut xfer_buf).unwrap();
+        self.read_device.get_feature_report(&mut xfer_buf).unwrap();
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
     }
 
@@ -226,7 +246,7 @@ impl ISPDevice<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        self.device.send_feature_report(&cmd).unwrap();
+        self.write_device.send_feature_report(&cmd).unwrap();
 
         let page_size = self.part.page_size;
         for i in 0..self.part.num_pages() {
@@ -241,7 +261,7 @@ impl ISPDevice<'static> {
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..page_size + 2].clone_from_slice(&buf);
-        self.device.send_feature_report(&xfer_buf).unwrap();
+        self.write_device.send_feature_report(&xfer_buf).unwrap();
     }
 
     fn erase(&self) {
@@ -254,7 +274,7 @@ impl ISPDevice<'static> {
             CMD_ERASE,
             CMD_ERASE,
         ];
-        self.device.send_feature_report(&cmd).unwrap();
+        self.write_device.send_feature_report(&cmd).unwrap();
         thread::sleep(time::Duration::from_millis(2000));
     }
 
@@ -268,6 +288,6 @@ impl ISPDevice<'static> {
             CMD_MAGIC_SAUCE,
             CMD_MAGIC_SAUCE,
         ];
-        self.device.send_feature_report(&cmd).unwrap();
+        self.write_device.send_feature_report(&cmd).unwrap();
     }
 }
