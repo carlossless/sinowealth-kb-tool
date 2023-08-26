@@ -82,7 +82,7 @@ impl ISPDevice<'static> {
             return false;
         }
         #[cfg(target_os = "windows")] {
-            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col01");
+            return String::from_utf8_lossy(device_info.path().to_bytes()).to_string().contains("Col03");
         };
         return true;
     }
