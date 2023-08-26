@@ -59,8 +59,18 @@ impl ISPDevice<'static> {
         #[cfg(target_os = "macos")]
         api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
 
-        api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).unwrap();
-        return api.open(GAMING_KB_VENDOR_ID, GAMING_KB_PRODUCT_ID).ok();
+        let device_info = api.device_list()
+            .filter(|d| d.vendor_id() == GAMING_KB_VENDOR_ID && d.product_id() == GAMING_KB_PRODUCT_ID && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col02"))
+            .next();
+
+        let Some(device_info) = device_info else {
+            info!("Device didn't come up...");
+            return None;
+        };
+
+        println!("Opening: {:?}", device_info.path());
+
+        return api.open_path(device_info.path()).ok();
     }
 
     fn switch_kb_device(part: &Part) -> Option<HidDevice> {
@@ -70,7 +80,7 @@ impl ISPDevice<'static> {
         api.set_open_exclusive(false); // macOS will error and throw a privilege violation otherwise
 
         let device_info = api.device_list()
-            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1 && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col4"))
+            .filter(|d| d.vendor_id() == part.vendor_id && d.product_id() == part.product_id && d.interface_number() == 1 && String::from_utf8_lossy(d.path().to_bytes()).to_string().contains("Col05"))
             .next();
 
         let Some(device_info) = device_info else {
