@@ -282,9 +282,8 @@ impl ISPDevice<'static> {
 
     fn data_device(&self) -> &HidDevice {
         #[cfg(target_os = "windows")]
-        {
-            return &self.data_device;
-        }
+        return &self.data_device;
+        #[cfg(not(target_os = "windows"))]
         &self.request_device
     }
 
