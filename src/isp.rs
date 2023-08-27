@@ -151,6 +151,8 @@ impl ISPDevice<'static> {
                     request: api.open_path(request_device.path()).unwrap(),
                     data: api.open_path(data_device.path()).unwrap(),
                 });
+            } else {
+                return Err(ISPError::NotFound);
             }
 
             #[cfg(not(target_os = "windows"))]
