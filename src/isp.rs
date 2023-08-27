@@ -184,6 +184,7 @@ impl ISPDevice<'static> {
                         .to_string()
                         .contains("Col05");
                 }
+                #[cfg(not(target_os = "windows"))]
                 true
             });
 
