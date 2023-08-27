@@ -159,6 +159,11 @@ impl ISPDevice<'static> {
     fn switch_kb_device(part: &Part) -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
+        info!(
+            "Looking for vId:{:#06x} pId:{:#06x}",
+            part.vendor_id, part.product_id
+        );
+
         let request_device_info = api
             .device_list()
             .filter(|d| {
@@ -169,17 +174,13 @@ impl ISPDevice<'static> {
             .find(|_d| {
                 #[cfg(target_os = "windows")]
                 {
-                    return String::from_utf8_lossy(d.path().to_bytes())
+                    return String::from_utf8_lossy(_d.path().to_bytes())
                         .to_string()
                         .contains("Col05");
                 }
                 true
             });
 
-        info!(
-            "Looking for vId:{:#06x} pId:{:#06x}",
-            part.vendor_id, part.product_id
-        );
         let Some(request_device_info) = request_device_info else {
             info!("Regular device didn't come up...");
             return Err(ISPError::NotFound);
