@@ -98,10 +98,6 @@ impl ISPDevice<'static> {
                 continue;
             }
 
-            if !(device_info.usage() == 1 && device_info.usage_page() == 0xff00) {
-                continue;
-            }
-
             let path = device_info.path();
             let path_str = path.to_str().unwrap();
 
