@@ -44,10 +44,10 @@ pub enum ISPError {
     DuplicateDevices(String, String),
     #[error("Device not found")]
     NotFound,
-    #[error("HIDError")]
+    #[error(transparent)]
     HidError(#[from] HidError),
     #[error(transparent)]
-    VerificationError(#[from] VerificationError)
+    VerificationError(#[from] VerificationError),
 }
 
 #[derive(Debug, Clone)]
@@ -57,12 +57,17 @@ pub enum ReadType {
     Full,
 }
 
+struct HIDDevices {
+    request: HidDevice,
+    data: HidDevice,
+}
+
 impl ISPDevice<'static> {
     pub fn new(part: &'static Part) -> Result<Self, ISPError> {
-        let (request_device, data_device) = Self::find_isp_device(part)?;
+        let devices = Self::find_isp_device(part)?;
         Ok(Self {
-            request_device,
-            data_device,
+            request_device: devices.request,
+            data_device: devices.data,
             part,
         })
     }
@@ -76,7 +81,7 @@ impl ISPDevice<'static> {
         api
     }
 
-    fn open_isp_devices() -> Result<(HidDevice, HidDevice), ISPError> {
+    fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
         let mut request_device: Option<&DeviceInfo> = None;
@@ -96,7 +101,7 @@ impl ISPDevice<'static> {
             let path = device_info.path();
             let path_str = path.to_str().unwrap();
 
-            debug!("Found: {}", path_str);
+            debug!("Enumerating: {}", path_str);
 
             #[cfg(target_os = "windows")]
             {
@@ -127,35 +132,31 @@ impl ISPDevice<'static> {
 
             #[cfg(not(target_os = "windows"))]
             if let Some(request_device) = request_device {
-                    if request_device.path() != path {
-                        warn!("Duplicate device found. Only the first one will be used");
-                    }
-                    continue;
-                } else {
-                    request_device = Some(device_info);
-                    data_device = Some(device_info);
-                    continue;
-                };
+                if request_device.path() != path {
+                    warn!("Duplicate device found. Only the first one will be used");
+                }
+                continue;
+            } else {
+                request_device = Some(device_info);
+                data_device = Some(device_info);
+                continue;
+            };
         }
 
         if let (Some(request_device), Some(data_device)) = (request_device, data_device) {
-            debug!(
-                "Opening: req - {:?} / data - {:?}",
-                request_device.path(),
-                data_device.path()
-            );
+            debug!("Request device: {:?}", request_device.path());
+            debug!("Data device: {:?}", data_device.path());
 
-            return Ok((
-                api.open_path(request_device.path()).unwrap(),
-                api.open_path(data_device.path()).unwrap(),
-            ));
+            return Ok(HIDDevices {
+                request: api.open_path(request_device.path()).unwrap(),
+                data: api.open_path(data_device.path()).unwrap(),
+            });
         } else {
             Err(ISPError::NotFound)
         }
     }
 
-
-    fn switch_kb_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
+    fn switch_kb_device(part: &Part) -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
         let request_device_info = api
@@ -175,8 +176,12 @@ impl ISPDevice<'static> {
                 true
             });
 
+        info!(
+            "Looking for vId:{:#06x} pId:{:#06x}",
+            part.vendor_id, part.product_id
+        );
         let Some(request_device_info) = request_device_info else {
-            info!("Device didn't come up...");
+            info!("Regular device didn't come up...");
             return Err(ISPError::NotFound);
         };
 
@@ -184,31 +189,35 @@ impl ISPDevice<'static> {
 
         let device = api.open_path(request_device_info.path()).unwrap();
 
-        info!("Found Device. Entering ISP mode...");
+        info!("Found Regular evice. Entering ISP mode...");
         Self::enter_isp_mode(&device)?;
 
-        info!("Waiting for bootloader device...");
+        info!("Waiting for ISP device...");
         thread::sleep(time::Duration::from_millis(1000));
 
         let Ok(isp_device) = Self::open_isp_devices() else {
-            info!("ISP Device didn't come up...");
+            info!("ISP device didn't come up...");
             return Err(ISPError::NotFound);
         };
 
         Ok(isp_device)
     }
 
-    fn find_isp_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
-        for attempt in 1..MAX_RETRIES + 1 {
+    fn find_isp_device(part: &Part) -> Result<HIDDevices, ISPError> {
+        Self::find_isp_device_retry(part, MAX_RETRIES)
+    }
+
+    fn find_isp_device_retry(part: &Part, retries: usize) -> Result<HIDDevices, ISPError> {
+        for attempt in 1..retries + 1 {
             if attempt > 1 {
-                info!("Retrying... Attempt {}/{}", attempt, MAX_RETRIES);
+                info!("Retrying... Attempt {}/{}", attempt, retries);
             }
 
             if let Ok(devices) = Self::switch_kb_device(part) {
                 info!("Connected!");
                 return Ok(devices);
             }
-            info!("No KB found. Trying bootloader directly...");
+            info!("Regular device not found. Trying ISP device...");
             if let Ok(devices) = Self::open_isp_devices() {
                 info!("Connected!");
                 return Ok(devices);
@@ -249,8 +258,7 @@ impl ISPDevice<'static> {
         }
 
         info!("Verifying...");
-        util::verify(firmware, &written)
-            .map_err(ISPError::from)?;
+        util::verify(firmware, &written).map_err(ISPError::from)?;
         self.finalize()?;
         Ok(())
     }
@@ -307,7 +315,8 @@ impl ISPDevice<'static> {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        self.data_device.get_feature_report(&mut xfer_buf)
+        self.data_device
+            .get_feature_report(&mut xfer_buf)
             .map_err(ISPError::from)?;
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
         Ok(())
@@ -324,7 +333,8 @@ impl ISPDevice<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        self.request_device.send_feature_report(&cmd)
+        self.request_device
+            .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
 
         let page_size = self.part.page_size;
@@ -341,7 +351,8 @@ impl ISPDevice<'static> {
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..page_size + 2].clone_from_slice(buf);
-        self.data_device.send_feature_report(&xfer_buf)
+        self.data_device
+            .send_feature_report(&xfer_buf)
             .map_err(ISPError::from)?;
         Ok(())
     }
@@ -356,7 +367,8 @@ impl ISPDevice<'static> {
             CMD_ERASE,
             CMD_ERASE,
         ];
-        self.request_device.send_feature_report(&cmd)
+        self.request_device
+            .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         thread::sleep(time::Duration::from_millis(2000));
         Ok(())
@@ -372,7 +384,8 @@ impl ISPDevice<'static> {
             CMD_MAGIC_SAUCE,
             CMD_MAGIC_SAUCE,
         ];
-        self.request_device.send_feature_report(&cmd)
+        self.request_device
+            .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         Ok(())
     }

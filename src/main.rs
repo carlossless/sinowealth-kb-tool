@@ -1,4 +1,8 @@
-use std::{fs, io::{self, Read}};
+use std::{
+    fs,
+    io::{self, Read},
+    process::ExitCode,
+};
 
 use clap::*;
 use log::*;
@@ -13,6 +17,16 @@ mod util;
 
 // pub use crate::hid::*;
 pub use crate::{ihex::*, isp::*, part::*, util::*};
+
+#[derive(Debug, Error)]
+pub enum CLIError {
+    #[error(transparent)]
+    IOError(#[from] io::Error),
+    #[error(transparent)]
+    ISPError(#[from] ISPError),
+    #[error(transparent)]
+    IHEXError(#[from] ConversionError),
+}
 
 fn cli() -> Command {
     return Command::new("sinowealth-kb-tool")
@@ -50,17 +64,7 @@ fn cli() -> Command {
         );
 }
 
-#[derive(Debug, Error)]
-pub enum CLIError {
-    #[error(transparent)]
-    IOError(#[from] io::Error),
-    #[error(transparent)]
-    ISPError(#[from] ISPError),
-    #[error(transparent)]
-    IHEXError(#[from] ConversionError),
-}
-
-fn main() -> Result<(), CLIError> {
+fn err_main() -> Result<(), CLIError> {
     SimpleLogger::new().init().unwrap();
 
     let matches = cli().get_matches();
@@ -138,4 +142,14 @@ fn main() -> Result<(), CLIError> {
         _ => unreachable!(),
     }
     Ok(())
+}
+
+fn main() -> ExitCode {
+    match err_main() {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("{}", e.to_string());
+            ExitCode::FAILURE
+        }
+    }
 }
