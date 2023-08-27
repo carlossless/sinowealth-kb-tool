@@ -2,7 +2,7 @@
 with pkgs;
 mkShell {
   buildInputs = [
-    rust-bin.beta.latest.default
+    rust-bin.nightly.latest.default
     pkg-config
     libusb1
   ] ++
