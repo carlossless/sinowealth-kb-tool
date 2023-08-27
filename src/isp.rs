@@ -9,7 +9,7 @@ use crate::VerificationError;
 
 extern crate hidapi;
 
-use hidapi::{HidApi, HidDevice};
+use hidapi::{HidApi, HidDevice, HidError};
 
 const MAX_RETRIES: usize = 10;
 
@@ -22,7 +22,7 @@ const REPORT_ID_CMD: u8 = 0x05;
 const REPORT_ID_XFER: u8 = 0x06;
 
 const CMD_ISP_MODE: u8 = 0x75;
-const CMD_MAGIC_SAUCE: u8 = 0x55; // unsure how this command works, hence the name
+const CMD_MAGIC_SAUCE: u8 = 0x55; // uncertain how this command works, hence the name
 const CMD_INIT_READ: u8 = 0x52;
 const CMD_INIT_WRITE: u8 = 0x57;
 const CMD_ERASE: u8 = 0x45;
@@ -44,6 +44,10 @@ pub enum ISPError {
     DuplicateDevices(String, String),
     #[error("Device not found")]
     NotFound,
+    #[error("HIDError")]
+    HidError(#[from] HidError),
+    #[error(transparent)]
+    VerificationError(#[from] VerificationError)
 }
 
 #[derive(Debug, Clone)]
@@ -54,15 +58,6 @@ pub enum ReadType {
 }
 
 impl ISPDevice<'static> {
-    fn hidapi() -> HidApi {
-        let api = HidApi::new().unwrap();
-
-        #[cfg(target_os = "macos")]
-        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
-
-        return api;
-    }
-
     pub fn new(part: &'static Part) -> Result<Self, ISPError> {
         let (request_device, data_device) = Self::find_isp_device(part)?;
         return Ok(Self {
@@ -72,7 +67,16 @@ impl ISPDevice<'static> {
         });
     }
 
-    fn fetch_kb_devices() -> Result<(HidDevice, HidDevice), ISPError> {
+    fn hidapi() -> HidApi {
+        let api = HidApi::new().unwrap();
+
+        #[cfg(target_os = "macos")]
+        api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
+
+        return api;
+    }
+
+    fn open_isp_devices() -> Result<(HidDevice, HidDevice), ISPError> {
         let api = Self::hidapi();
 
         let mut request_device: Option<&DeviceInfo> = None;
@@ -96,6 +100,8 @@ impl ISPDevice<'static> {
 
             #[cfg(target_os = "windows")]
             {
+                // Windows requires that we use specific devices for requests and data
+                // https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/hidclass-hardware-ids-for-top-level-collections
                 if path_str.contains("Col02") {
                     if let Some(request_device) = request_device {
                         return Err(ISPError::DuplicateDevices(
@@ -150,9 +156,6 @@ impl ISPDevice<'static> {
         }
     }
 
-    fn open_isp_device() -> Result<(HidDevice, HidDevice), ISPError> {
-        return Self::fetch_kb_devices();
-    }
 
     fn switch_kb_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
         let api = Self::hidapi();
@@ -185,12 +188,12 @@ impl ISPDevice<'static> {
         let device = api.open_path(request_device_info.path()).unwrap();
 
         info!("Found Device. Entering ISP mode...");
-        Self::enter_isp_mode(&device);
+        Self::enter_isp_mode(&device)?;
 
         info!("Waiting for bootloader device...");
         thread::sleep(time::Duration::from_millis(1000));
 
-        let Ok(isp_device) = Self::open_isp_device() else {
+        let Ok(isp_device) = Self::open_isp_devices() else {
             info!("ISP Device didn't come up...");
             return Err(ISPError::NotFound);
         };
@@ -209,7 +212,7 @@ impl ISPDevice<'static> {
                 return Ok(devices);
             }
             info!("No KB found. Trying bootloader directly...");
-            if let Ok(devices) = Self::open_isp_device() {
+            if let Ok(devices) = Self::open_isp_devices() {
                 info!("Connected!");
                 return Ok(devices);
             }
@@ -217,13 +220,14 @@ impl ISPDevice<'static> {
         return Err(ISPError::NotFound);
     }
 
-    fn enter_isp_mode(handle: &HidDevice) {
+    fn enter_isp_mode(handle: &HidDevice) -> Result<(), ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
-        let _ = handle.send_feature_report(&cmd); // ignore errors, many might be encountered here
+        handle.send_feature_report(&cmd)?;
+        return Ok(())
     }
 
-    pub fn read_cycle(&self, read_type: ReadType) -> Vec<u8> {
-        self.magic_sauce();
+    pub fn read_cycle(&self, read_type: ReadType) -> Result<Vec<u8>, ISPError> {
+        self.magic_sauce()?;
 
         return match read_type {
             ReadType::Normal => self.read(0, self.part.flash_size),
@@ -232,12 +236,12 @@ impl ISPDevice<'static> {
         };
     }
 
-    pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), VerificationError> {
+    pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
         let length = firmware.len();
 
-        self.erase();
-        self.write(&firmware);
-        let written = self.read(0, self.part.flash_size);
+        self.erase()?;
+        self.write(&firmware)?;
+        let written = self.read(0, self.part.flash_size)?;
 
         // ARCANE: the ISP will copy the LJMP instruction (if existing) from the end to the very start of memory.
         // We need to make modifications to the expected payload to account for this.
@@ -248,19 +252,21 @@ impl ISPDevice<'static> {
         }
 
         info!("Verifying...");
-        util::verify(&firmware, &written)?;
-        self.finalize();
+        util::verify(&firmware, &written)
+            .map_err(ISPError::from)?;
+        self.finalize()?;
         return Ok(());
     }
 
-    pub fn erase_cycle(&self) {
+    pub fn erase_cycle(&self) -> Result<(), ISPError> {
         info!("Erasing...");
-        self.erase();
-        self.finalize();
+        self.erase()?;
+        self.finalize()?;
+        return Ok(());
     }
 
     /// Allows firmware to be read prior to erasing it
-    fn magic_sauce(&self) {
+    fn magic_sauce(&self) -> Result<(), ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
             CMD_MAGIC_SAUCE,
@@ -270,10 +276,11 @@ impl ISPDevice<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        self.request_device.send_feature_report(&cmd).unwrap();
+        self.request_device.send_feature_report(&cmd)?;
+        return Ok(())
     }
 
-    fn read(&self, start_addr: usize, length: usize) -> Vec<u8> {
+    fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
             CMD_INIT_READ,
@@ -282,7 +289,7 @@ impl ISPDevice<'static> {
             (length & 0xff) as u8,
             (length >> 8) as u8,
         ];
-        self.request_device.send_feature_report(&cmd).unwrap();
+        self.request_device.send_feature_report(&cmd)?;
 
         let page_size = self.part.page_size;
         let num_page = length / page_size;
@@ -293,21 +300,23 @@ impl ISPDevice<'static> {
                 i,
                 start_addr + i * page_size
             );
-            self.read_page(&mut result);
+            self.read_page(&mut result)?;
         }
-        return result;
+        return Ok(result);
     }
 
-    fn read_page(&self, buf: &mut Vec<u8>) {
+    fn read_page(&self, buf: &mut Vec<u8>) -> Result<(), ISPError> {
         let page_size = self.part.page_size;
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        self.data_device.get_feature_report(&mut xfer_buf).unwrap();
+        self.data_device.get_feature_report(&mut xfer_buf)
+            .map_err(ISPError::from)?;
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
+        return Ok(())
     }
 
-    fn write(&self, buffer: &Vec<u8>) {
+    fn write(&self, buffer: &Vec<u8>) -> Result<(), ISPError> {
         info!("Writing...");
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
@@ -318,25 +327,29 @@ impl ISPDevice<'static> {
             (self.part.flash_size >> 8) as u8,
         ];
 
-        self.request_device.send_feature_report(&cmd).unwrap();
+        self.request_device.send_feature_report(&cmd)
+            .map_err(ISPError::from)?;
 
         let page_size = self.part.page_size;
         for i in 0..self.part.num_pages() {
             debug!("Writting page {} @ offset {:#06x}", i, i * page_size);
-            self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)]);
+            self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
         }
+        return Ok(())
     }
 
-    fn write_page(&self, buf: &[u8]) {
+    fn write_page(&self, buf: &[u8]) -> Result<(), ISPError> {
         let page_size = self.part.page_size;
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..page_size + 2].clone_from_slice(&buf);
-        self.data_device.send_feature_report(&xfer_buf).unwrap();
+        self.data_device.send_feature_report(&xfer_buf)
+            .map_err(ISPError::from)?;
+        return Ok(())
     }
 
-    fn erase(&self) {
+    fn erase(&self) -> Result<(), ISPError> {
         info!("Erasing...");
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
@@ -346,11 +359,13 @@ impl ISPDevice<'static> {
             CMD_ERASE,
             CMD_ERASE,
         ];
-        self.request_device.send_feature_report(&cmd).unwrap();
+        self.request_device.send_feature_report(&cmd)
+            .map_err(ISPError::from)?;
         thread::sleep(time::Duration::from_millis(2000));
+        return Ok(())
     }
 
-    fn finalize(&self) {
+    fn finalize(&self) -> Result<(), ISPError> {
         info!("Finalizing...");
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
@@ -360,6 +375,8 @@ impl ISPDevice<'static> {
             CMD_MAGIC_SAUCE,
             CMD_MAGIC_SAUCE,
         ];
-        self.request_device.send_feature_report(&cmd).unwrap();
+        self.request_device.send_feature_report(&cmd)
+            .map_err(ISPError::from)?;
+        return Ok(())
     }
 }
