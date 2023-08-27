@@ -34,6 +34,7 @@ const LJMP_OPCODE: u8 = 0x02;
 
 pub struct ISPDevice<'a> {
     request_device: HidDevice,
+    #[cfg(target_os = "windows")]
     data_device: HidDevice,
     part: &'a Part,
 }
@@ -59,6 +60,7 @@ pub enum ReadType {
 
 struct HIDDevices {
     request: HidDevice,
+    #[cfg(target_os = "windows")]
     data: HidDevice,
 }
 
@@ -67,6 +69,7 @@ impl ISPDevice<'static> {
         let devices = Self::find_isp_device(part)?;
         Ok(Self {
             request_device: devices.request,
+            #[cfg(target_os = "windows")]
             data_device: devices.data,
             part,
         })
@@ -85,6 +88,7 @@ impl ISPDevice<'static> {
         let api = Self::hidapi();
 
         let mut request_device: Option<&DeviceInfo> = None;
+        #[cfg(target_os = "windows")]
         let mut data_device: Option<&DeviceInfo> = None;
 
         for device_info in api.device_list() {
@@ -138,18 +142,24 @@ impl ISPDevice<'static> {
                 continue;
             } else {
                 request_device = Some(device_info);
-                data_device = Some(device_info);
                 continue;
             };
         }
 
-        if let (Some(request_device), Some(data_device)) = (request_device, data_device) {
+        if let Some(request_device) = request_device {
             debug!("Request device: {:?}", request_device.path());
-            debug!("Data device: {:?}", data_device.path());
+            #[cfg(target_os = "windows")]
+            if let Some(data_device) = data_device {
+                debug!("Data device: {:?}", data_device.path());
+                return Ok(HIDDevices {
+                    request: api.open_path(request_device.path()).unwrap(),
+                    data: api.open_path(data_device.path()).unwrap(),
+                });
+            }
 
+            #[cfg(not(target_os = "windows"))]
             return Ok(HIDDevices {
                 request: api.open_path(request_device.path()).unwrap(),
-                data: api.open_path(data_device.path()).unwrap(),
             });
         } else {
             Err(ISPError::NotFound)
@@ -271,6 +281,14 @@ impl ISPDevice<'static> {
         Ok(())
     }
 
+    fn data_device(&self) -> &HidDevice {
+        #[cfg(target_os = "windows")]
+        {
+            return &self.data_device;
+        }
+        &self.request_device
+    }
+
     /// Allows firmware to be read prior to erasing it
     fn magic_sauce(&self) -> Result<(), ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [
@@ -316,7 +334,7 @@ impl ISPDevice<'static> {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        self.data_device
+        self.data_device()
             .get_feature_report(&mut xfer_buf)
             .map_err(ISPError::from)?;
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
@@ -352,7 +370,7 @@ impl ISPDevice<'static> {
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..page_size + 2].clone_from_slice(buf);
-        self.data_device
+        self.data_device()
             .send_feature_report(&xfer_buf)
             .map_err(ISPError::from)?;
         Ok(())
