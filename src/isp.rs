@@ -203,7 +203,7 @@ impl ISPDevice<'static> {
         Self::enter_isp_mode(&device)?;
 
         info!("Waiting for ISP device...");
-        thread::sleep(time::Duration::from_millis(1000));
+        thread::sleep(time::Duration::from_millis(2000));
 
         let Ok(isp_device) = Self::open_isp_devices() else {
             info!("ISP device didn't come up...");
