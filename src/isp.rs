@@ -60,11 +60,11 @@ pub enum ReadType {
 impl ISPDevice<'static> {
     pub fn new(part: &'static Part) -> Result<Self, ISPError> {
         let (request_device, data_device) = Self::find_isp_device(part)?;
-        return Ok(Self {
-            request_device: request_device,
-            data_device: data_device,
-            part: &part,
-        });
+        Ok(Self {
+            request_device,
+            data_device,
+            part,
+        })
     }
 
     fn hidapi() -> HidApi {
@@ -73,7 +73,7 @@ impl ISPDevice<'static> {
         #[cfg(target_os = "macos")]
         api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
 
-        return api;
+        api
     }
 
     fn open_isp_devices() -> Result<(HidDevice, HidDevice), ISPError> {
@@ -126,8 +126,7 @@ impl ISPDevice<'static> {
             };
 
             #[cfg(not(target_os = "windows"))]
-            {
-                if let Some(request_device) = request_device {
+            if let Some(request_device) = request_device {
                     if request_device.path() != path {
                         warn!("Duplicate device found. Only the first one will be used");
                     }
@@ -136,8 +135,7 @@ impl ISPDevice<'static> {
                     request_device = Some(device_info);
                     data_device = Some(device_info);
                     continue;
-                }
-            };
+                };
         }
 
         if let (Some(request_device), Some(data_device)) = (request_device, data_device) {
@@ -152,7 +150,7 @@ impl ISPDevice<'static> {
                 api.open_path(data_device.path()).unwrap(),
             ));
         } else {
-            return Err(ISPError::NotFound);
+            Err(ISPError::NotFound)
         }
     }
 
@@ -167,14 +165,14 @@ impl ISPDevice<'static> {
                     && d.product_id() == part.product_id
                     && d.interface_number() == 1
             })
-            .filter(|d| {
+            .filter(|_d| {
                 #[cfg(target_os = "windows")]
                 {
                     return String::from_utf8_lossy(d.path().to_bytes())
                         .to_string()
                         .contains("Col05");
                 }
-                return true;
+                true
             })
             .next();
 
@@ -198,7 +196,7 @@ impl ISPDevice<'static> {
             return Err(ISPError::NotFound);
         };
 
-        return Ok(isp_device);
+        Ok(isp_device)
     }
 
     fn find_isp_device(part: &Part) -> Result<(HidDevice, HidDevice), ISPError> {
@@ -217,30 +215,30 @@ impl ISPDevice<'static> {
                 return Ok(devices);
             }
         }
-        return Err(ISPError::NotFound);
+        Err(ISPError::NotFound)
     }
 
     fn enter_isp_mode(handle: &HidDevice) -> Result<(), ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
         handle.send_feature_report(&cmd)?;
-        return Ok(())
+        Ok(())
     }
 
     pub fn read_cycle(&self, read_type: ReadType) -> Result<Vec<u8>, ISPError> {
         self.magic_sauce()?;
 
-        return match read_type {
+        match read_type {
             ReadType::Normal => self.read(0, self.part.flash_size),
             ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size),
             ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size),
-        };
+        }
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
         let length = firmware.len();
 
         self.erase()?;
-        self.write(&firmware)?;
+        self.write(firmware)?;
         let written = self.read(0, self.part.flash_size)?;
 
         // ARCANE: the ISP will copy the LJMP instruction (if existing) from the end to the very start of memory.
@@ -252,17 +250,17 @@ impl ISPDevice<'static> {
         }
 
         info!("Verifying...");
-        util::verify(&firmware, &written)
+        util::verify(firmware, &written)
             .map_err(ISPError::from)?;
         self.finalize()?;
-        return Ok(());
+        Ok(())
     }
 
     pub fn erase_cycle(&self) -> Result<(), ISPError> {
         info!("Erasing...");
         self.erase()?;
         self.finalize()?;
-        return Ok(());
+        Ok(())
     }
 
     /// Allows firmware to be read prior to erasing it
@@ -277,7 +275,7 @@ impl ISPDevice<'static> {
         ];
 
         self.request_device.send_feature_report(&cmd)?;
-        return Ok(())
+        Ok(())
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
@@ -302,7 +300,7 @@ impl ISPDevice<'static> {
             );
             self.read_page(&mut result)?;
         }
-        return Ok(result);
+        Ok(result)
     }
 
     fn read_page(&self, buf: &mut Vec<u8>) -> Result<(), ISPError> {
@@ -313,10 +311,10 @@ impl ISPDevice<'static> {
         self.data_device.get_feature_report(&mut xfer_buf)
             .map_err(ISPError::from)?;
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
-        return Ok(())
+        Ok(())
     }
 
-    fn write(&self, buffer: &Vec<u8>) -> Result<(), ISPError> {
+    fn write(&self, buffer: &[u8]) -> Result<(), ISPError> {
         info!("Writing...");
         let cmd: [u8; COMMAND_LENGTH] = [
             REPORT_ID_CMD,
@@ -335,7 +333,7 @@ impl ISPDevice<'static> {
             debug!("Writting page {} @ offset {:#06x}", i, i * page_size);
             self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
         }
-        return Ok(())
+        Ok(())
     }
 
     fn write_page(&self, buf: &[u8]) -> Result<(), ISPError> {
@@ -343,10 +341,10 @@ impl ISPDevice<'static> {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
-        xfer_buf[2..page_size + 2].clone_from_slice(&buf);
+        xfer_buf[2..page_size + 2].clone_from_slice(buf);
         self.data_device.send_feature_report(&xfer_buf)
             .map_err(ISPError::from)?;
-        return Ok(())
+        Ok(())
     }
 
     fn erase(&self) -> Result<(), ISPError> {
@@ -362,7 +360,7 @@ impl ISPDevice<'static> {
         self.request_device.send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         thread::sleep(time::Duration::from_millis(2000));
-        return Ok(())
+        Ok(())
     }
 
     fn finalize(&self) -> Result<(), ISPError> {
@@ -377,6 +375,6 @@ impl ISPDevice<'static> {
         ];
         self.request_device.send_feature_report(&cmd)
             .map_err(ISPError::from)?;
-        return Ok(())
+        Ok(())
     }
 }

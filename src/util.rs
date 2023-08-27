@@ -33,5 +33,5 @@ pub fn verify(expected: &Vec<u8>, actual: &Vec<u8>) -> Result<(), VerificationEr
         }
     }
 
-    return Ok(());
+    Ok(())
 }

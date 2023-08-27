@@ -28,7 +28,7 @@ fn cli() -> Command {
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
                 .arg(
                     arg!(-p --part <PART>)
-                        .value_parser(PARTS.keys().map(|&s| s).collect::<Vec<_>>())
+                        .value_parser(PARTS.keys().copied().collect::<Vec<_>>())
                         .required(true),
                 )
                 .arg(arg!(-b --bootloader "read only booloader").conflicts_with("full"))
@@ -44,7 +44,7 @@ fn cli() -> Command {
                 .arg(arg!(input_file: <INPUT_FILE> "payload to write into flash"))
                 .arg(
                     arg!(-p --part <PART>)
-                        .value_parser(PARTS.keys().map(|&s| s).collect::<Vec<_>>())
+                        .value_parser(PARTS.keys().copied().collect::<Vec<_>>())
                         .required(true),
                 ),
         );
@@ -137,5 +137,5 @@ fn main() -> Result<(), CLIError> {
         }
         _ => unreachable!(),
     }
-    return Ok(());
+    Ok(())
 }
