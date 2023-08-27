@@ -165,7 +165,7 @@ impl ISPDevice<'static> {
                     && d.product_id() == part.product_id
                     && d.interface_number() == 1
             })
-            .filter(|_d| {
+            .find(|_d| {
                 #[cfg(target_os = "windows")]
                 {
                     return String::from_utf8_lossy(d.path().to_bytes())
@@ -173,8 +173,7 @@ impl ISPDevice<'static> {
                         .contains("Col05");
                 }
                 true
-            })
-            .next();
+            });
 
         let Some(request_device_info) = request_device_info else {
             info!("Device didn't come up...");
