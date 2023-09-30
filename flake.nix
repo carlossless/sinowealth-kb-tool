@@ -8,7 +8,8 @@
 
   outputs = { self, nixpkgs, flake-utils, naersk, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (
-      system: let
+      system:
+      let
         overlays = [ (import rust-overlay) ];
 
         pkgs = import nixpkgs {
@@ -35,7 +36,8 @@
           darwin.apple_sdk.frameworks.AppKit
           iconv
         ]);
-      in {
+      in
+      {
         formatter = pkgs.nixpkgs-fmt;
 
         packages = {
@@ -54,14 +56,14 @@
               homepage = "https://github.com/carlossless/sinowealth-kb-tool";
               license = licenses.mit;
               mainProgram = "sinowealth-kb-tool";
-              maintainers = with maintainers; [carlossless];
+              maintainers = with maintainers; [ carlossless ];
             };
           };
         };
 
         devShells.default = pkgs.mkShell {
           inherit buildInputs;
-          nativeBuildInputs = with pkgs; [rustup toolchain];
+          nativeBuildInputs = with pkgs; [ rustup toolchain ];
         };
       }
     );
