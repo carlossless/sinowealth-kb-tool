@@ -32,11 +32,11 @@ const XFER_WRITE_PAGE: u8 = 0x77;
 
 const LJMP_OPCODE: u8 = 0x02;
 
-pub struct ISPDevice<'a> {
+pub struct ISPDevice {
     request_device: HidDevice,
     #[cfg(target_os = "windows")]
     data_device: HidDevice,
-    part: &'a Part,
+    part: Part,
 }
 
 #[derive(Debug, Error)]
@@ -64,8 +64,8 @@ struct HIDDevices {
     data: HidDevice,
 }
 
-impl ISPDevice<'static> {
-    pub fn new(part: &'static Part) -> Result<Self, ISPError> {
+impl ISPDevice {
+    pub fn new(part: Part) -> Result<Self, ISPError> {
         let devices = Self::find_isp_device(part)?;
         Ok(Self {
             request_device: devices.request,
@@ -164,7 +164,7 @@ impl ISPDevice<'static> {
         }
     }
 
-    fn switch_kb_device(part: &Part) -> Result<HIDDevices, ISPError> {
+    fn switch_kb_device(part: Part) -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
         info!(
@@ -213,11 +213,11 @@ impl ISPDevice<'static> {
         Ok(isp_device)
     }
 
-    fn find_isp_device(part: &Part) -> Result<HIDDevices, ISPError> {
+    fn find_isp_device(part: Part) -> Result<HIDDevices, ISPError> {
         Self::find_isp_device_retry(part, MAX_RETRIES)
     }
 
-    fn find_isp_device_retry(part: &Part, retries: usize) -> Result<HIDDevices, ISPError> {
+    fn find_isp_device_retry(part: Part, retries: usize) -> Result<HIDDevices, ISPError> {
         for attempt in 1..retries + 1 {
             if attempt > 1 {
                 thread::sleep(time::Duration::from_millis(500));
