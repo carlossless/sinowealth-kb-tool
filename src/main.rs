@@ -29,8 +29,6 @@ pub enum CLIError {
     IHEXError(#[from] ConversionError),
 }
 
-const PART_CUSTOM: &str = "custom";
-
 fn main() -> ExitCode {
     match err_main() {
         Ok(_) => ExitCode::SUCCESS,
@@ -55,7 +53,7 @@ fn cli() -> Command {
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
                 .arg(
                     arg!(-p --part <PART>)
-                        .value_parser(available_part_options())
+                        .value_parser(Part::available_parts())
                         .required_unless_present_all([
                             "flash_size",
                             "bootloader_size",
@@ -66,27 +64,23 @@ fn cli() -> Command {
                 )
                 .arg(
                     arg!(--flash_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(clap::value_parser!(usize)),
                 )
                 .arg(
                     arg!(--bootloader_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(clap::value_parser!(usize)),
                 )
-                .arg(
-                    arg!(--page_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
-                        .value_parser(clap::value_parser!(usize)),
-                )
+                .arg(arg!(--page_size <SIZE>).value_parser(clap::value_parser!(usize)))
                 .arg(
                     arg!(--vendor_id <VID>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(maybe_hex::<u16>),
                 )
                 .arg(
                     arg!(--product_id <PID>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(maybe_hex::<u16>),
                 )
                 .arg(arg!(-b --bootloader "read only booloader").conflicts_with("full"))
@@ -102,7 +96,7 @@ fn cli() -> Command {
                 .arg(arg!(input_file: <INPUT_FILE> "payload to write into flash"))
                 .arg(
                     arg!(-p --part <PART>)
-                        .value_parser(available_part_options())
+                        .value_parser(Part::available_parts())
                         .required_unless_present_all([
                             "flash_size",
                             "bootloader_size",
@@ -113,27 +107,27 @@ fn cli() -> Command {
                 )
                 .arg(
                     arg!(--flash_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(clap::value_parser!(usize)),
                 )
                 .arg(
                     arg!(--bootloader_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(clap::value_parser!(usize)),
                 )
                 .arg(
                     arg!(--page_size <SIZE>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(clap::value_parser!(usize)),
                 )
                 .arg(
                     arg!(--vendor_id <VID>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(maybe_hex::<u16>),
                 )
                 .arg(
                     arg!(--product_id <PID>)
-                        .required_if_eq("part", PART_CUSTOM)
+                        .required_unless_present("part")
                         .value_parser(maybe_hex::<u16>),
                 ),
         );
@@ -198,21 +192,12 @@ fn err_main() -> Result<(), CLIError> {
     Ok(())
 }
 
-fn available_part_options() -> Vec<&'static str> {
-    let mut parts = Part::available_parts();
-    parts.push(PART_CUSTOM);
-    parts
-}
-
 fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
-    let part_name = sub_matches
-        .get_one::<String>("part")
-        .map(|s| s.as_str());
+    let part_name = sub_matches.get_one::<String>("part").map(|s| s.as_str());
 
     let mut part = match part_name {
-        Some("custom") => Part::default(),
         Some(part_name) => *PARTS.get(part_name).unwrap(),
-        _ => Part::default()
+        _ => Part::default(),
     };
 
     let flash_size = sub_matches.get_one::<usize>("flash_size");
@@ -236,5 +221,5 @@ fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
     if let Some(product_id) = product_id {
         part.product_id = *product_id;
     }
-    return part
+    return part;
 }
