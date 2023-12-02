@@ -5,6 +5,7 @@ use std::{
 };
 
 use clap::*;
+use clap_num::*;
 use log::*;
 use simple_logger::SimpleLogger;
 use thiserror::Error;
@@ -44,8 +45,39 @@ fn cli() -> Command {
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
                 .arg(
                     arg!(-p --part <PART>)
-                        .value_parser(PARTS.keys().copied().collect::<Vec<_>>())
-                        .required(true),
+                        .value_parser(available_part_options())
+                        .required_unless_present_all([
+                            "flash_size",
+                            "bootloader_size",
+                            "page_size",
+                            "vendor_id",
+                            "product_id",
+                        ]),
+                )
+                .arg(
+                    arg!(--flash_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--bootloader_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--page_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--vendor_id <VID>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(maybe_hex::<u16>),
+                )
+                .arg(
+                    arg!(--product_id <PID>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(maybe_hex::<u16>),
                 )
                 .arg(arg!(-b --bootloader "read only booloader").conflicts_with("full"))
                 .arg(
@@ -69,11 +101,31 @@ fn cli() -> Command {
                             "product_id",
                         ]),
                 )
-                .arg(arg!(--flash_size <SIZE>).required_if_eq("part", PART_CUSTOM))
-                .arg(arg!(--bootloader_size <SIZE>).required_if_eq("part", PART_CUSTOM))
-                .arg(arg!(--page_size <SIZE>).required_if_eq("part", PART_CUSTOM))
-                .arg(arg!(--vendor_id <VID>).required_if_eq("part", PART_CUSTOM))
-                .arg(arg!(--product_id <PID>).required_if_eq("part", PART_CUSTOM)),
+                .arg(
+                    arg!(--flash_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--bootloader_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--page_size <SIZE>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(clap::value_parser!(usize)),
+                )
+                .arg(
+                    arg!(--vendor_id <VID>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(maybe_hex::<u16>),
+                )
+                .arg(
+                    arg!(--product_id <PID>)
+                        .required_if_eq("part", PART_CUSTOM)
+                        .value_parser(maybe_hex::<u16>),
+                ),
         );
 }
 
@@ -104,7 +156,33 @@ fn err_main() -> Result<(), CLIError> {
 
             let bootloader = sub_matches.get_flag("bootloader");
 
-            let part = *PARTS.get(part_name).unwrap();
+            let mut part = if part_name != "custom" {
+                *PARTS.get(part_name).unwrap()
+            } else {
+                Part::default()
+            };
+
+            let flash_size = sub_matches.get_one::<usize>("flash_size");
+            let bootloader_size = sub_matches.get_one::<usize>("bootloader_size");
+            let page_size = sub_matches.get_one::<usize>("page_size");
+            let vendor_id = sub_matches.get_one::<u16>("vendor_id");
+            let product_id = sub_matches.get_one::<u16>("product_id");
+
+            if let Some(flash_size) = flash_size {
+                part.flash_size = *flash_size;
+            }
+            if let Some(bootloader_size) = bootloader_size {
+                part.bootloader_size = *bootloader_size;
+            }
+            if let Some(page_size) = page_size {
+                part.page_size = *page_size;
+            }
+            if let Some(vendor_id) = vendor_id {
+                part.vendor_id = *vendor_id;
+            }
+            if let Some(product_id) = product_id {
+                part.product_id = *product_id;
+            }
 
             let read_type = match (full, bootloader) {
                 (true, _) => ReadType::Full,
