@@ -31,6 +31,16 @@ pub enum CLIError {
 
 const PART_CUSTOM: &str = "custom";
 
+fn main() -> ExitCode {
+    match err_main() {
+        Ok(_) => ExitCode::SUCCESS,
+        Err(e) => {
+            error!("{}", e.to_string());
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn cli() -> Command {
     return Command::new("sinowealth-kb-tool")
         .about("A programming tool for Sinowealth Gaming KB devices")
@@ -129,12 +139,6 @@ fn cli() -> Command {
         );
 }
 
-fn available_part_options() -> Vec<&'static str> {
-    let mut parts = Part::available_parts();
-    parts.push(PART_CUSTOM);
-    parts
-}
-
 fn err_main() -> Result<(), CLIError> {
     SimpleLogger::new().init().unwrap();
 
@@ -142,11 +146,6 @@ fn err_main() -> Result<(), CLIError> {
 
     match matches.subcommand() {
         Some(("read", sub_matches)) => {
-            let part_name = sub_matches
-                .get_one::<String>("part")
-                .map(|s| s.as_str())
-                .unwrap();
-
             let output_file = sub_matches
                 .get_one::<String>("output_file")
                 .map(|s| s.as_str())
@@ -156,33 +155,7 @@ fn err_main() -> Result<(), CLIError> {
 
             let bootloader = sub_matches.get_flag("bootloader");
 
-            let mut part = if part_name != "custom" {
-                *PARTS.get(part_name).unwrap()
-            } else {
-                Part::default()
-            };
-
-            let flash_size = sub_matches.get_one::<usize>("flash_size");
-            let bootloader_size = sub_matches.get_one::<usize>("bootloader_size");
-            let page_size = sub_matches.get_one::<usize>("page_size");
-            let vendor_id = sub_matches.get_one::<u16>("vendor_id");
-            let product_id = sub_matches.get_one::<u16>("product_id");
-
-            if let Some(flash_size) = flash_size {
-                part.flash_size = *flash_size;
-            }
-            if let Some(bootloader_size) = bootloader_size {
-                part.bootloader_size = *bootloader_size;
-            }
-            if let Some(page_size) = page_size {
-                part.page_size = *page_size;
-            }
-            if let Some(vendor_id) = vendor_id {
-                part.vendor_id = *vendor_id;
-            }
-            if let Some(product_id) = product_id {
-                part.product_id = *product_id;
-            }
+            let part = get_part_from_matches(sub_matches);
 
             let read_type = match (full, bootloader) {
                 (true, _) => ReadType::Full,
@@ -205,38 +178,7 @@ fn err_main() -> Result<(), CLIError> {
                 .map(|s| s.as_str())
                 .unwrap();
 
-            let part_name = sub_matches
-                .get_one::<String>("part")
-                .map(|s| s.as_str())
-                .unwrap();
-
-            let mut part = if part_name != "custom" {
-                *PARTS.get(part_name).unwrap()
-            } else {
-                Part::default()
-            };
-
-            let flash_size = sub_matches.get_one::<usize>("flash_size");
-            let bootloader_size = sub_matches.get_one::<usize>("bootloader_size");
-            let page_size = sub_matches.get_one::<usize>("page_size");
-            let vendor_id = sub_matches.get_one::<u16>("vendor_id");
-            let product_id = sub_matches.get_one::<u16>("product_id");
-
-            if let Some(flash_size) = flash_size {
-                part.flash_size = *flash_size;
-            }
-            if let Some(bootloader_size) = bootloader_size {
-                part.bootloader_size = *bootloader_size;
-            }
-            if let Some(page_size) = page_size {
-                part.page_size = *page_size;
-            }
-            if let Some(vendor_id) = vendor_id {
-                part.vendor_id = *vendor_id;
-            }
-            if let Some(product_id) = product_id {
-                part.product_id = *product_id;
-            }
+            let part = get_part_from_matches(sub_matches);
 
             let mut file = fs::File::open(input_file).map_err(CLIError::from)?;
             let mut file_buf = Vec::new();
@@ -251,28 +193,48 @@ fn err_main() -> Result<(), CLIError> {
             let isp = ISPDevice::new(part).map_err(CLIError::from)?;
             isp.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
-        Some(("erase", sub_matches)) => {
-            let part_name = sub_matches
-                .get_one::<String>("part")
-                .map(|s| s.as_str())
-                .unwrap();
-
-            let part = *PARTS.get(part_name).unwrap();
-
-            let isp = ISPDevice::new(part).map_err(CLIError::from)?;
-            isp.erase_cycle().map_err(CLIError::from)?;
-        }
         _ => unreachable!(),
     }
     Ok(())
 }
 
-fn main() -> ExitCode {
-    match err_main() {
-        Ok(_) => ExitCode::SUCCESS,
-        Err(e) => {
-            error!("{}", e.to_string());
-            ExitCode::FAILURE
-        }
+fn available_part_options() -> Vec<&'static str> {
+    let mut parts = Part::available_parts();
+    parts.push(PART_CUSTOM);
+    parts
+}
+
+fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
+    let part_name = sub_matches
+        .get_one::<String>("part")
+        .map(|s| s.as_str());
+
+    let mut part = match part_name {
+        Some("custom") => Part::default(),
+        Some(part_name) => *PARTS.get(part_name).unwrap(),
+        _ => Part::default()
+    };
+
+    let flash_size = sub_matches.get_one::<usize>("flash_size");
+    let bootloader_size = sub_matches.get_one::<usize>("bootloader_size");
+    let page_size = sub_matches.get_one::<usize>("page_size");
+    let vendor_id = sub_matches.get_one::<u16>("vendor_id");
+    let product_id = sub_matches.get_one::<u16>("product_id");
+
+    if let Some(flash_size) = flash_size {
+        part.flash_size = *flash_size;
     }
+    if let Some(bootloader_size) = bootloader_size {
+        part.bootloader_size = *bootloader_size;
+    }
+    if let Some(page_size) = page_size {
+        part.page_size = *page_size;
+    }
+    if let Some(vendor_id) = vendor_id {
+        part.vendor_id = *vendor_id;
+    }
+    if let Some(product_id) = product_id {
+        part.product_id = *product_id;
+    }
+    return part
 }

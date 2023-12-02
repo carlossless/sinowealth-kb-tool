@@ -274,13 +274,6 @@ impl ISPDevice {
         Ok(())
     }
 
-    pub fn erase_cycle(&self) -> Result<(), ISPError> {
-        info!("Erasing...");
-        self.erase()?;
-        self.finalize()?;
-        Ok(())
-    }
-
     fn data_device(&self) -> &HidDevice {
         #[cfg(target_os = "windows")]
         return &self.data_device;
