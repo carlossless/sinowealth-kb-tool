@@ -1,7 +1,7 @@
 use std::{thread, time};
 
 use hidapi::DeviceInfo;
-use log::*;
+use log::{debug, info, warn};
 use thiserror::Error;
 
 use super::{part::*, util};

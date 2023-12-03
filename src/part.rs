@@ -1,4 +1,4 @@
-use phf::*;
+use phf::{phf_map, Map};
 
 #[derive(Default, Clone, Copy)]
 pub struct Part {
@@ -41,7 +41,7 @@ pub const PART_TERPORT_TR95: Part = Part {
     product_id: 0x0049,
 };
 
-pub static PARTS: phf::Map<&'static str, Part> = phf_map! {
+pub static PARTS: Map<&'static str, Part> = phf_map! {
     "nuphy-air60" => PART_NUPHY_AIR60,
     "nuphy-air75" => PART_NUPHY_AIR60, // same as nuphy-air60
     "nuphy-air96" => PART_NUPHY_AIR60, // same as nuphy-air60

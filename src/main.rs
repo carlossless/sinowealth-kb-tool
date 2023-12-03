@@ -4,9 +4,9 @@ use std::{
     process::ExitCode,
 };
 
-use clap::*;
-use clap_num::*;
-use log::*;
+use clap::{arg, ArgMatches, Command};
+use clap_num::maybe_hex;
+use log::{error, info};
 use simple_logger::SimpleLogger;
 use thiserror::Error;
 
@@ -16,7 +16,6 @@ mod part;
 mod ihex;
 mod util;
 
-// pub use crate::hid::*;
 pub use crate::{ihex::*, isp::*, part::*, util::*};
 
 #[derive(Debug, Error)]
@@ -51,38 +50,7 @@ fn cli() -> Command {
                 .short_flag('r')
                 .about("Read flash contents. (Intel HEX)")
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
-                .arg(
-                    arg!(-p --part <PART>)
-                        .value_parser(Part::available_parts())
-                        .required_unless_present_all([
-                            "flash_size",
-                            "bootloader_size",
-                            "page_size",
-                            "vendor_id",
-                            "product_id",
-                        ]),
-                )
-                .arg(
-                    arg!(--flash_size <SIZE>)
-                        .required_unless_present("part")
-                        .value_parser(clap::value_parser!(usize)),
-                )
-                .arg(
-                    arg!(--bootloader_size <SIZE>)
-                        .required_unless_present("part")
-                        .value_parser(clap::value_parser!(usize)),
-                )
-                .arg(arg!(--page_size <SIZE>).value_parser(clap::value_parser!(usize)))
-                .arg(
-                    arg!(--vendor_id <VID>)
-                        .required_unless_present("part")
-                        .value_parser(maybe_hex::<u16>),
-                )
-                .arg(
-                    arg!(--product_id <PID>)
-                        .required_unless_present("part")
-                        .value_parser(maybe_hex::<u16>),
-                )
+                .part_args()
                 .arg(arg!(-b --bootloader "read only booloader").conflicts_with("full"))
                 .arg(
                     arg!(-f --full "read complete flash (including the bootloader)")
@@ -94,42 +62,7 @@ fn cli() -> Command {
                 .short_flag('w')
                 .about("Write file (Intel HEX) into flash.")
                 .arg(arg!(input_file: <INPUT_FILE> "payload to write into flash"))
-                .arg(
-                    arg!(-p --part <PART>)
-                        .value_parser(Part::available_parts())
-                        .required_unless_present_all([
-                            "flash_size",
-                            "bootloader_size",
-                            "page_size",
-                            "vendor_id",
-                            "product_id",
-                        ]),
-                )
-                .arg(
-                    arg!(--flash_size <SIZE>)
-                        .required_unless_present("part")
-                        .value_parser(clap::value_parser!(usize)),
-                )
-                .arg(
-                    arg!(--bootloader_size <SIZE>)
-                        .required_unless_present("part")
-                        .value_parser(clap::value_parser!(usize)),
-                )
-                .arg(
-                    arg!(--page_size <SIZE>)
-                        .required_unless_present("part")
-                        .value_parser(clap::value_parser!(usize)),
-                )
-                .arg(
-                    arg!(--vendor_id <VID>)
-                        .required_unless_present("part")
-                        .value_parser(maybe_hex::<u16>),
-                )
-                .arg(
-                    arg!(--product_id <PID>)
-                        .required_unless_present("part")
-                        .value_parser(maybe_hex::<u16>),
-                ),
+                .part_args(),
         );
 }
 
@@ -190,6 +123,51 @@ fn err_main() -> Result<(), CLIError> {
         _ => unreachable!(),
     }
     Ok(())
+}
+
+trait PartCommand {
+    fn part_args(self) -> Command;
+}
+
+impl PartCommand for Command {
+    fn part_args(self) -> Command {
+        self.arg(
+            arg!(-p --part <PART>)
+                .value_parser(Part::available_parts())
+                .required_unless_present_all([
+                    "flash_size",
+                    "bootloader_size",
+                    "page_size",
+                    "vendor_id",
+                    "product_id",
+                ]),
+        )
+        .arg(
+            arg!(--flash_size <SIZE>)
+                .required_unless_present("part")
+                .value_parser(clap::value_parser!(usize)),
+        )
+        .arg(
+            arg!(--bootloader_size <SIZE>)
+                .required_unless_present("part")
+                .value_parser(clap::value_parser!(usize)),
+        )
+        .arg(
+            arg!(--page_size <SIZE>)
+                .required_unless_present("part")
+                .value_parser(clap::value_parser!(usize)),
+        )
+        .arg(
+            arg!(--vendor_id <VID>)
+                .required_unless_present("part")
+                .value_parser(maybe_hex::<u16>),
+        )
+        .arg(
+            arg!(--product_id <PID>)
+                .required_unless_present("part")
+                .value_parser(maybe_hex::<u16>),
+        )
+    }
 }
 
 fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
