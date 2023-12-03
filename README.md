@@ -10,7 +10,7 @@ This is an experimental tool, so use it at your own risk.
 
 ## Usage
 
-Read (here)[https://github.com/carlossless/sinowealth-kb-tool/issues/19] for ISP quirks.
+Read [here](https://github.com/carlossless/sinowealth-kb-tool/issues/19) for ISP quirks.
 
 ### Reading
 
