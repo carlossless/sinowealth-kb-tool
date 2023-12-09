@@ -269,7 +269,7 @@ impl ISPDevice {
             self.fixup_firmware(&mut firmware);
         }
 
-        return Ok(firmware)
+        return Ok(firmware);
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
