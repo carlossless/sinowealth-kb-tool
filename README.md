@@ -14,9 +14,9 @@ Read [here](https://github.com/carlossless/sinowealth-kb-tool/issues/19) for ISP
 
 ### Reading
 
-⚠️ Reading is not entirely an idempotent operation. A read operation will insert an LJMP opcode at `0xeffb` if it's not already present.
+⚠️ A read operation will set an LJMP opcode at `0xeffb` if it's not already present there.
 
-⚠️ The ISP bootloader will move the LJMP from `0xeffb` to `0x0000`, therefore the produced dump will not fully reflect the actual state in ROM.
+⚠️ When reading, the ISP bootloader redirects values in `0x0001-0x0002` to `0xeffc-0xeffd`. Knowing this, the tool attempts to fix up the read payload and place the values in the same places where they actually reside in flash.
 
 ```sh
 # reads firmware excluding isp bootloader 
