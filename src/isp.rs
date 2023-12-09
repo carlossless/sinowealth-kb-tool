@@ -22,7 +22,7 @@ const REPORT_ID_CMD: u8 = 0x05;
 const REPORT_ID_XFER: u8 = 0x06;
 
 const CMD_ISP_MODE: u8 = 0x75;
-const CMD_MAGIC_SAUCE: u8 = 0x55; // uncertain how this command works, hence the name
+const CMD_ENABLE_FIRMWARE: u8 = 0x55;
 const CMD_INIT_READ: u8 = 0x52;
 const CMD_INIT_WRITE: u8 = 0x57;
 const CMD_ERASE: u8 = 0x45;
@@ -64,7 +64,7 @@ pub enum ISPError {
     FirmwareError(#[from] FirmwareError),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ReadType {
     Normal,
     Bootloader,
@@ -257,13 +257,19 @@ impl ISPDevice {
     }
 
     pub fn read_cycle(&self, read_type: ReadType) -> Result<Vec<u8>, ISPError> {
-        self.magic_sauce()?;
+        self.enable_firmware()?;
 
-        match read_type {
-            ReadType::Normal => self.read(0, self.part.flash_size),
-            ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size),
-            ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size),
+        let mut firmware = match read_type {
+            ReadType::Normal => self.read(0, self.part.flash_size)?,
+            ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size)?,
+            ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size)?,
+        };
+
+        if read_type == ReadType::Normal || read_type == ReadType::Full {
+            self.fixup_firmware(&mut firmware);
         }
+
+        return Ok(firmware)
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
@@ -272,20 +278,16 @@ impl ISPDevice {
         self.check_firmware(firmware)?;
 
         self.erase()?;
-        self.write(firmware)?;
+        self.write(0, firmware)?;
 
-        // ARCANE: the ISP will copy the LJMP instruction (if existing) from the end to the very start of memory.
-        // We need to make modifications to the expected payload to account for this.
-        if firmware[length - 5] == LJMP_OPCODE {
-            firmware[0] = LJMP_OPCODE;
-            firmware.copy_within((length - 4)..(length - 2), 1); // Copy LJMP address
-            firmware[(length - 5)..(length - 2)].fill(0); // Cleanup
-        }
+        // Since ISP bootloader redirects the LJMP address from <firmware_len-4> to 0x0001, we need to modify the expected payload to account for this
+        firmware.copy_within((length - 4)..(length - 2), 1);
+        firmware[(length - 5)..(length - 2)].fill(0);
 
         info!("Verifying...");
         let written = self.read(0, self.part.flash_size)?;
         util::verify(firmware, &written).map_err(ISPError::from)?;
-        self.finalize()?;
+        self.enable_firmware()?;
         Ok(())
     }
 
@@ -327,31 +329,17 @@ impl ISPDevice {
         return Ok(());
     }
 
-    /// Allows firmware to be read prior to erasing it
-    fn magic_sauce(&self) -> Result<(), ISPError> {
-        let cmd: [u8; COMMAND_LENGTH] = [
-            REPORT_ID_CMD,
-            CMD_MAGIC_SAUCE,
-            0x00,
-            0x00,
-            (self.part.flash_size & 0xff) as u8,
-            (self.part.flash_size >> 8) as u8,
-        ];
-
-        self.request_device.send_feature_report(&cmd)?;
-        Ok(())
+    /// Recreates an aproximate original firmware payload by undoing memory reorganization done by the bootloader
+    fn fixup_firmware(&self, firmware: &mut [u8]) {
+        let bootloader_addr: usize = self.part.flash_size;
+        firmware.copy_within(0..3, self.part.flash_size - 5);
+        firmware[0] = LJMP_OPCODE;
+        firmware[1..3].copy_from_slice(&(bootloader_addr as u16).to_be_bytes());
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
-        let cmd: [u8; COMMAND_LENGTH] = [
-            REPORT_ID_CMD,
-            CMD_INIT_READ,
-            (start_addr & 0xff) as u8,
-            (start_addr >> 8) as u8,
-            (length & 0xff) as u8,
-            (length >> 8) as u8,
-        ];
-        self.request_device.send_feature_report(&cmd)?;
+        info!("Reading...");
+        self.init_read(start_addr)?;
 
         let page_size = self.part.page_size;
         let num_page = length / page_size;
@@ -367,6 +355,51 @@ impl ISPDevice {
         Ok(result)
     }
 
+    fn write(&self, start_addr: usize, buffer: &[u8]) -> Result<(), ISPError> {
+        info!("Writing...");
+        self.init_write(start_addr)?;
+
+        let page_size = self.part.page_size;
+        for i in 0..self.part.num_pages() {
+            debug!("Writing page {} @ offset {:#06x}", i, i * page_size);
+            self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
+        }
+        Ok(())
+    }
+
+    /// Initializes the read operation / sets the initial read address
+    fn init_read(&self, start_addr: usize) -> Result<(), ISPError> {
+        let cmd: [u8; COMMAND_LENGTH] = [
+            REPORT_ID_CMD,
+            CMD_INIT_READ,
+            (start_addr & 0xff) as u8,
+            (start_addr >> 8) as u8,
+            0,
+            0,
+        ];
+        self.request_device
+            .send_feature_report(&cmd)
+            .map_err(ISPError::from)?;
+        Ok(())
+    }
+
+    /// Initializes the write operation / sets the initial write address
+    fn init_write(&self, start_addr: usize) -> Result<(), ISPError> {
+        let cmd: [u8; COMMAND_LENGTH] = [
+            REPORT_ID_CMD,
+            CMD_INIT_WRITE,
+            (start_addr & 0xff) as u8,
+            (start_addr >> 8) as u8,
+            0,
+            0,
+        ];
+        self.request_device
+            .send_feature_report(&cmd)
+            .map_err(ISPError::from)?;
+        Ok(())
+    }
+
+    /// Reads one page of flash contents
     fn read_page(&self, buf: &mut Vec<u8>) -> Result<(), ISPError> {
         let page_size = self.part.page_size;
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
@@ -379,71 +412,42 @@ impl ISPDevice {
         Ok(())
     }
 
-    fn write(&self, buffer: &[u8]) -> Result<(), ISPError> {
-        info!("Writing...");
-        let cmd: [u8; COMMAND_LENGTH] = [
-            REPORT_ID_CMD,
-            CMD_INIT_WRITE,
-            0,
-            0,
-            (self.part.flash_size & 0xff) as u8,
-            (self.part.flash_size >> 8) as u8,
-        ];
-
-        self.request_device
-            .send_feature_report(&cmd)
-            .map_err(ISPError::from)?;
-
-        let page_size = self.part.page_size;
-        for i in 0..self.part.num_pages() {
-            debug!("Writting page {} @ offset {:#06x}", i, i * page_size);
-            self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
-        }
-        Ok(())
-    }
-
+    /// Writes one page to flash
+    ///
+    /// Note: The first 3 bytes at address 0x0000 (first-page) are skipped. Instead the second and third bytes (firmware's reset vector LJMP destination address) are written to address <firmware_len-4> and will later be part of the LJMP instruction after the firmware is enabled (`enable_firmware`). This only works once after an erase operation.
     fn write_page(&self, buf: &[u8]) -> Result<(), ISPError> {
-        let page_size = self.part.page_size;
-        let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
+        let length = buf.len() + 2;
+        let mut xfer_buf: Vec<u8> = vec![0; length];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
-        xfer_buf[2..page_size + 2].clone_from_slice(buf);
+        xfer_buf[2..length].clone_from_slice(buf);
         self.data_device()
             .send_feature_report(&xfer_buf)
             .map_err(ISPError::from)?;
         Ok(())
     }
 
+    /// Sets a LJMP (0x02) OPCODE at <firmware_len-5>.
+    /// This enables the main firmware by making the bootloader jump to it on reset.
+    ///
+    /// Side-effect: enables reading the firmware without erasing flash first. Credits to @gashtaan for finding this out.
+    fn enable_firmware(&self) -> Result<(), ISPError> {
+        info!("Enabling firmware...");
+        let cmd: [u8; COMMAND_LENGTH] =
+            [REPORT_ID_CMD, CMD_ENABLE_FIRMWARE, 0x00, 0x00, 0x00, 0x00];
+
+        self.request_device.send_feature_report(&cmd)?;
+        Ok(())
+    }
+
+    /// Erases everything in flash, except the ISP bootloader section itself and initializes the reset vector to jump to ISP.
     fn erase(&self) -> Result<(), ISPError> {
         info!("Erasing...");
-        let cmd: [u8; COMMAND_LENGTH] = [
-            REPORT_ID_CMD,
-            CMD_ERASE,
-            CMD_ERASE,
-            CMD_ERASE,
-            CMD_ERASE,
-            CMD_ERASE,
-        ];
+        let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ERASE, 0, 0, 0, 0];
         self.request_device
             .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         thread::sleep(time::Duration::from_millis(2000));
-        Ok(())
-    }
-
-    fn finalize(&self) -> Result<(), ISPError> {
-        info!("Finalizing...");
-        let cmd: [u8; COMMAND_LENGTH] = [
-            REPORT_ID_CMD,
-            CMD_MAGIC_SAUCE,
-            CMD_MAGIC_SAUCE,
-            CMD_MAGIC_SAUCE,
-            CMD_MAGIC_SAUCE,
-            CMD_MAGIC_SAUCE,
-        ];
-        self.request_device
-            .send_feature_report(&cmd)
-            .map_err(ISPError::from)?;
         Ok(())
     }
 }

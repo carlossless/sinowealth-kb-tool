@@ -14,9 +14,9 @@ Read [here](https://github.com/carlossless/sinowealth-kb-tool/issues/19) for ISP
 
 ### Reading
 
-⚠️ Reading is not entirely an idempotent operation. A read operation can change values in the `0xeffb - 0xeffd` region.
+⚠️ Reading is not entirely an idempotent operation. A read operation will insert an LJMP opcode at `0xeffb` if it's not already present.
 
-⚠️ The ISP bootloader will blank out bytes in the `0xeffb - 0xeffd` region, therefore the produced dump might not reflect the actual state in ROM.
+⚠️ The ISP bootloader will move the LJMP from `0xeffb` to `0x0000`, therefore the produced dump will not fully reflect the actual state in ROM.
 
 ```sh
 # reads firmware excluding isp bootloader 
