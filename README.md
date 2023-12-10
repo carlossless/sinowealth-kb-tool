@@ -14,7 +14,7 @@ This is an experimental tool, so use it at your own risk.
 
 ⚠️ A read operation will set an LJMP (0x02) opcode at address `<firmware_size-5>` if it's not already present there. When this opcode is set, the bootloader considers the main firmware enabled and jumps to it when the device is powered on. This opcode should already be set on most devices and therefore the read operation **should** not cause any issues.
 
-⚠️ Durring reading the ISP bootloader will redirect values in `0x0001 - 0x0002` to `<firmware_size-4> - <firmware_size-3>`. Because of this, the produced payload will be different from how memory is actually laid out in the MCU flash.
+⚠️ During reading the ISP bootloader will redirect values in `0x0001 - 0x0002` to `<firmware_size-4> - <firmware_size-3>`. Because of this, the produced payload will be different from how memory is actually laid out in the MCU flash.
 
 ```sh
 # reads firmware excluding isp bootloader 
