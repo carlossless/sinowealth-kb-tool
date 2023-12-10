@@ -38,12 +38,6 @@ pub struct ISPDevice {
 }
 
 #[derive(Debug, Error)]
-pub enum FirmwareError {
-    #[error("Last firmware page is not blank")]
-    LastPageNotBlank,
-}
-
-#[derive(Debug, Error)]
 pub enum ISPError {
     #[error("Duplicate devices found")]
     DuplicateDevices(String, String),
@@ -53,8 +47,6 @@ pub enum ISPError {
     HidError(#[from] HidError),
     #[error(transparent)]
     VerificationError(#[from] VerificationError),
-    #[error(transparent)]
-    FirmwareError(#[from] FirmwareError),
 }
 
 #[derive(Debug, Clone)]
@@ -364,7 +356,10 @@ impl ISPDevice {
 
     /// Writes one page to flash
     ///
-    /// Note: The first 3 bytes at address 0x0000 (first-page) are skipped. Instead the second and third bytes (firmware's reset vector LJMP destination address) are written to address <firmware_len-4> and will later be part of the LJMP instruction after the firmware is enabled (`enable_firmware`). This only works once after an erase operation.
+    /// Note: The first 3 bytes at address 0x0000 (first-page) are skipped. Instead the second and
+    /// third bytes (firmware's reset vector LJMP destination address) are written to address
+    /// <firmware_len-4> and will later be part of the LJMP instruction after the firmware is
+    /// enabled (`enable_firmware`). This only works once after an erase operation.
     fn write_page(&self, buf: &[u8]) -> Result<(), ISPError> {
         let length = buf.len() + 2;
         let mut xfer_buf: Vec<u8> = vec![0; length];
@@ -380,7 +375,8 @@ impl ISPDevice {
     /// Sets a LJMP (0x02) opcode at <firmware_len-5>.
     /// This enables the main firmware by making the bootloader jump to it on reset.
     ///
-    /// Side-effect: enables reading the firmware without erasing flash first. Credits to @gashtaan for finding this out.
+    /// Side-effect: enables reading the firmware without erasing flash first.
+    /// Credits to @gashtaan for finding this out.
     fn enable_firmware(&self) -> Result<(), ISPError> {
         info!("Enabling firmware...");
         let cmd: [u8; COMMAND_LENGTH] =
@@ -390,7 +386,8 @@ impl ISPDevice {
         Ok(())
     }
 
-    /// Erases everything in flash, except the ISP bootloader section itself and initializes the reset vector to jump to ISP.
+    /// Erases everything in flash, except the ISP bootloader section itself and initializes the
+    /// reset vector to jump to ISP.
     fn erase(&self) -> Result<(), ISPError> {
         info!("Erasing...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ERASE, 0, 0, 0, 0];
