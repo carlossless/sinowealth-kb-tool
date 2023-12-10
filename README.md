@@ -85,4 +85,4 @@ Make sure your user is part of the `plugdev` group.
 
 ## Acknowledgments
 
-Thanks to @gashtaan for analyzing and explaining the inner workings of the ISP bootloaders. Without his help, this tool wouldn't be here!
+Thanks to [@gashtaan](https://github.com/gashtaan) for analyzing and explaining the inner workings of the ISP bootloaders. Without his help, this tool wouldn't be here!
