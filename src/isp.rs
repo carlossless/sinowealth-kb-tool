@@ -30,8 +30,6 @@ const CMD_ERASE: u8 = 0x45;
 const XFER_READ_PAGE: u8 = 0x72;
 const XFER_WRITE_PAGE: u8 = 0x77;
 
-const LJMP_OPCODE: u8 = 0x02;
-
 pub struct ISPDevice {
     request_device: HidDevice,
     #[cfg(target_os = "windows")]
@@ -42,7 +40,7 @@ pub struct ISPDevice {
 #[derive(Debug, Error)]
 pub enum FirmwareError {
     #[error("Last firmware page is not blank")]
-    LastPageNotBlank
+    LastPageNotBlank,
 }
 
 #[derive(Debug, Error)]
@@ -264,10 +262,14 @@ impl ISPDevice {
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
-        self.check_firmware(firmware)?;
+        // ensure that addr <firmware_len-4> has the same reset vector
+        firmware.copy_within(1..3, self.part.flash_size - 4);
 
         self.erase()?;
         self.write(0, firmware)?;
+
+        // cleanup changes made at <firmware_len-4>
+        firmware[self.part.flash_size - 4..self.part.flash_size - 2].fill(0);
 
         info!("Verifying...");
         let written = self.read(0, self.part.flash_size)?;
@@ -282,17 +284,6 @@ impl ISPDevice {
         return &self.data_device;
         #[cfg(not(target_os = "windows"))]
         &self.request_device
-    }
-
-    fn check_firmware(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
-        let length = firmware.len();
-        let last_page_addr = (self.part.num_pages() - 1) * self.part.page_size;
-        for i in last_page_addr..length {
-            if firmware[i] != 0x00 {
-                return Err(ISPError::FirmwareError(FirmwareError::LastPageNotBlank));
-            }
-        }
-        return Ok(());
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
@@ -318,7 +309,8 @@ impl ISPDevice {
         self.init_write(start_addr)?;
 
         let page_size = self.part.page_size;
-        for i in 0..(self.part.num_pages()-1) { // skip the last page
+        for i in 0..self.part.num_pages() {
+            // skip the last page
             debug!("Writing page {} @ offset {:#06x}", i, i * page_size);
             self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
         }
@@ -385,7 +377,7 @@ impl ISPDevice {
         Ok(())
     }
 
-    /// Sets a LJMP (0x02) OPCODE at <firmware_len-5>.
+    /// Sets a LJMP (0x02) opcode at <firmware_len-5>.
     /// This enables the main firmware by making the bootloader jump to it on reset.
     ///
     /// Side-effect: enables reading the firmware without erasing flash first. Credits to @gashtaan for finding this out.
