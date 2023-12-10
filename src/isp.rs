@@ -245,9 +245,11 @@ impl ISPDevice {
         self.enable_firmware()?;
 
         let firmware = match read_type {
-            ReadType::Normal => self.read(0, self.part.flash_size)?,
-            ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size)?,
-            ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size)?,
+            ReadType::Normal => self.read(0, self.part.firmware_size)?,
+            ReadType::Bootloader => {
+                self.read(self.part.firmware_size, self.part.bootloader_size)?
+            }
+            ReadType::Full => self.read(0, self.part.firmware_size + self.part.bootloader_size)?,
         };
 
         return Ok(firmware);
@@ -255,16 +257,16 @@ impl ISPDevice {
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
         // ensure that addr <firmware_len-4> has the same reset vector
-        firmware.copy_within(1..3, self.part.flash_size - 4);
+        firmware.copy_within(1..3, self.part.firmware_size - 4);
 
         self.erase()?;
         self.write(0, firmware)?;
 
         // cleanup changes made at <firmware_len-4>
-        firmware[self.part.flash_size - 4..self.part.flash_size - 2].fill(0);
+        firmware[self.part.firmware_size - 4..self.part.firmware_size - 2].fill(0);
 
         info!("Verifying...");
-        let written = self.read(0, self.part.flash_size)?;
+        let written = self.read(0, self.part.firmware_size)?;
         util::verify(firmware, &written).map_err(ISPError::from)?;
 
         self.enable_firmware()?;
