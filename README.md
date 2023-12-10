@@ -85,5 +85,4 @@ Make sure your user is part of the `plugdev` group.
 
 ## Acknowledgments
 
-* https://github.com/gashtaan/sinowealth-8051-dumper
-* https://github.com/ayufan-rock64/pinebook-pro-keyboard-updater
+Thanks to @gashtaan for analyzing and explaining the inner workings of the ISP bootloaders. Without his help, this tool wouldn't be here!
