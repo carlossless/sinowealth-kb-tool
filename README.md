@@ -12,7 +12,7 @@ This is an experimental tool, so use it at your own risk.
 
 ### Reading
 
-⚠️ A read operation will set an LJMP (0x02) opcode at address `<firmware_size-5>` if it's not already present there.
+⚠️ A read operation will set an LJMP (0x02) opcode at address `<firmware_size-5>` if it's not already present there. This essentially enables the firmware by causing the bootloader to jump to the specified addresses right after the device is turned on. This should not cause issues for most devices.
 
 ⚠️ When reading, the ISP bootloader redirects values in `0x0001 - 0x0002` to `<firmware_size-4> - <firmware_size-3>`. The produced payload will be different from how memory is stored in flash.
 
