@@ -14,9 +14,9 @@ Read [here](https://github.com/carlossless/sinowealth-kb-tool/issues/19) for ISP
 
 ### Reading
 
-⚠️ A read operation will set an LJMP opcode at `0xeffb` if it's not already present there.
+⚠️ A read operation will set an LJMP (0x02) opcode at address `0xeffb` if it's not already present there.
 
-⚠️ When reading, the ISP bootloader redirects values in `0x0001-0x0002` to `0xeffc-0xeffd`. Knowing this, the tool attempts to fix up the read payload and place the values in the same places where they actually reside in flash.
+⚠️ When reading, the ISP bootloader redirects values in `0x0001-0x0002` to `0xeffc-0xeffd`. The produced payload will be different from how memory is stored in flash.
 
 ```sh
 # reads firmware excluding isp bootloader 
@@ -39,6 +39,8 @@ sinowealth-kb-tool read \
 ```
 
 ### Writing
+
+⚠️ Same as the read operation, the ISP bootloader will write values meant for addresses `0x0001-0x0002` to `0xeffc-0xeffd`. 
 
 ```sh
 # overwrites firmware (does not touch the bootloader section)
