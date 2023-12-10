@@ -305,7 +305,6 @@ impl ISPDevice {
 
         let page_size = self.part.page_size;
         for i in 0..self.part.num_pages() {
-            // skip the last page
             debug!("Writing page {} @ offset {:#06x}", i, i * page_size);
             self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
         }
