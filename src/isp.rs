@@ -256,13 +256,13 @@ impl ISPDevice {
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
-        // ensure that addr <firmware_len-4> has the same reset vector
+        // ensure that addr <firmware_size-4> has the same reset vector
         firmware.copy_within(1..3, self.part.firmware_size - 4);
 
         self.erase()?;
         self.write(0, firmware)?;
 
-        // cleanup changes made at <firmware_len-4>
+        // cleanup changes made at <firmware_size-4>
         firmware[self.part.firmware_size - 4..self.part.firmware_size - 2].fill(0);
 
         info!("Verifying...");
@@ -360,7 +360,7 @@ impl ISPDevice {
     ///
     /// Note: The first 3 bytes at address 0x0000 (first-page) are skipped. Instead the second and
     /// third bytes (firmware's reset vector LJMP destination address) are written to address
-    /// <firmware_len-4> and will later be part of the LJMP instruction after the firmware is
+    /// <firmware_size-4> and will later be part of the LJMP instruction after the firmware is
     /// enabled (`enable_firmware`). This only works once after an erase operation.
     fn write_page(&self, buf: &[u8]) -> Result<(), ISPError> {
         let length = buf.len() + 2;
@@ -374,7 +374,7 @@ impl ISPDevice {
         Ok(())
     }
 
-    /// Sets a LJMP (0x02) opcode at <firmware_len-5>.
+    /// Sets a LJMP (0x02) opcode at <firmware_size-5>.
     /// This enables the main firmware by making the bootloader jump to it on reset.
     ///
     /// Side-effect: enables reading the firmware without erasing flash first.
