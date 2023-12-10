@@ -41,13 +41,8 @@ pub struct ISPDevice {
 
 #[derive(Debug, Error)]
 pub enum FirmwareError {
-    #[error("No LJMP found at {location_addr:#06x}")]
-    NoLJMP { location_addr: u16 },
-    #[error("LJMP at {location_addr:#06x} points to invalid address {target_addr:#06x}")]
-    InvalidLJMPAddr {
-        location_addr: u16,
-        target_addr: u16,
-    },
+    #[error("Last firmware page is not blank")]
+    LastPageNotBlank
 }
 
 #[derive(Debug, Error)]
@@ -64,7 +59,7 @@ pub enum ISPError {
     FirmwareError(#[from] FirmwareError),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ReadType {
     Normal,
     Bootloader,
@@ -259,34 +254,25 @@ impl ISPDevice {
     pub fn read_cycle(&self, read_type: ReadType) -> Result<Vec<u8>, ISPError> {
         self.enable_firmware()?;
 
-        let mut firmware = match read_type {
+        let firmware = match read_type {
             ReadType::Normal => self.read(0, self.part.flash_size)?,
             ReadType::Bootloader => self.read(self.part.flash_size, self.part.bootloader_size)?,
             ReadType::Full => self.read(0, self.part.flash_size + self.part.bootloader_size)?,
         };
 
-        if read_type == ReadType::Normal || read_type == ReadType::Full {
-            self.fixup_firmware(&mut firmware);
-        }
-
         return Ok(firmware);
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
-        let length = firmware.len();
-
         self.check_firmware(firmware)?;
 
         self.erase()?;
         self.write(0, firmware)?;
 
-        // Since ISP bootloader redirects the LJMP address from <firmware_len-4> to 0x0001, we need to modify the expected payload to account for this
-        firmware.copy_within((length - 4)..(length - 2), 1);
-        firmware[(length - 5)..(length - 2)].fill(0);
-
         info!("Verifying...");
         let written = self.read(0, self.part.flash_size)?;
         util::verify(firmware, &written).map_err(ISPError::from)?;
+
         self.enable_firmware()?;
         Ok(())
     }
@@ -300,41 +286,13 @@ impl ISPDevice {
 
     fn check_firmware(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
         let length = firmware.len();
-        if firmware[length - 5] != LJMP_OPCODE {
-            info!("No LJMP detected at {:#06x}", length - 5);
-            if firmware[0] != LJMP_OPCODE {
-                return Err(ISPError::FirmwareError(FirmwareError::NoLJMP {
-                    location_addr: 0x0000,
-                }));
-            }
-            let ljmp_addr = (firmware[1] as u16) << 8 | firmware[2] as u16;
-            if ljmp_addr == 0x0000 {
-                return Err(ISPError::FirmwareError(FirmwareError::InvalidLJMPAddr {
-                    location_addr: 0x0000,
-                    target_addr: ljmp_addr,
-                }));
-            }
-            info!("Copying LJMP from {:#06x} to {:#06x}", 0x0000, length - 5);
-            firmware[length - 5] = LJMP_OPCODE;
-            firmware.copy_within(1..3, length - 4); // Copy LJMP address
-        } else {
-            let ljmp_addr = (firmware[length - 4] as u16) << 8 | firmware[length - 3] as u16;
-            if ljmp_addr == 0x0000 {
-                return Err(ISPError::FirmwareError(FirmwareError::InvalidLJMPAddr {
-                    location_addr: (length - 5) as u16,
-                    target_addr: ljmp_addr,
-                }));
+        let last_page_addr = (self.part.num_pages() - 1) * self.part.page_size;
+        for i in last_page_addr..length {
+            if firmware[i] != 0x00 {
+                return Err(ISPError::FirmwareError(FirmwareError::LastPageNotBlank));
             }
         }
         return Ok(());
-    }
-
-    /// Recreates an aproximate original firmware payload by undoing memory reorganization done by the bootloader
-    fn fixup_firmware(&self, firmware: &mut [u8]) {
-        let bootloader_addr: usize = self.part.flash_size;
-        firmware.copy_within(0..3, self.part.flash_size - 5);
-        firmware[0] = LJMP_OPCODE;
-        firmware[1..3].copy_from_slice(&(bootloader_addr as u16).to_be_bytes());
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
@@ -360,7 +318,7 @@ impl ISPDevice {
         self.init_write(start_addr)?;
 
         let page_size = self.part.page_size;
-        for i in 0..self.part.num_pages() {
+        for i in 0..(self.part.num_pages()-1) { // skip the last page
             debug!("Writing page {} @ offset {:#06x}", i, i * page_size);
             self.write_page(&buffer[(i * page_size)..((i + 1) * page_size)])?;
         }
