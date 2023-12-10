@@ -265,9 +265,10 @@ impl ISPDevice {
         // cleanup the address at <firmware_size-4>
         firmware[self.part.firmware_size - 4..self.part.firmware_size - 2].fill(0);
 
+        let read_back = self.read(0, self.part.firmware_size)?;
+
         info!("Verifying...");
-        let written = self.read(0, self.part.firmware_size)?;
-        util::verify(firmware, &written).map_err(ISPError::from)?;
+        util::verify(firmware, &read_back).map_err(ISPError::from)?;
 
         self.enable_firmware()?;
         Ok(())
