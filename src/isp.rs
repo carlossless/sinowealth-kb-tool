@@ -256,13 +256,13 @@ impl ISPDevice {
     }
 
     pub fn write_cycle(&self, firmware: &mut Vec<u8>) -> Result<(), ISPError> {
-        // ensure that addr <firmware_size-4> has the same reset vector
+        // ensure that the address at <firmware_size-4> is the same as the reset vector
         firmware.copy_within(1..3, self.part.firmware_size - 4);
 
         self.erase()?;
         self.write(0, firmware)?;
 
-        // cleanup changes made at <firmware_size-4>
+        // cleanup the address at <firmware_size-4>
         firmware[self.part.firmware_size - 4..self.part.firmware_size - 2].fill(0);
 
         info!("Verifying...");
