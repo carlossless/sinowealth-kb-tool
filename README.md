@@ -10,8 +10,6 @@ This is an experimental tool, so use it at your own risk.
 
 ## Usage
 
-Read [here](https://github.com/carlossless/sinowealth-kb-tool/issues/19) for ISP quirks.
-
 ### Reading
 
 ⚠️ A read operation will set an LJMP (0x02) opcode at address `0xeffb` if it's not already present there.
