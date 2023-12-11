@@ -382,7 +382,7 @@ impl ISPDevice {
     fn enable_firmware(&self) -> Result<(), ISPError> {
         info!("Enabling firmware...");
         let cmd: [u8; COMMAND_LENGTH] =
-            [REPORT_ID_CMD, CMD_ENABLE_FIRMWARE, 0x00, 0x00, 0x00, 0x00];
+            [REPORT_ID_CMD, CMD_ENABLE_FIRMWARE, 0, 0, 0, 0];
 
         self.request_device.send_feature_report(&cmd)?;
         Ok(())
