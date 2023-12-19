@@ -26,7 +26,7 @@ jobs:
         run: find ./
       - name: Install and configure dependencies
         run: |
-          sudo apt-get install -qq libusb-1.0.0-dev
+          sudo apt-get install -qq libusb-1.0.0-dev libudev-dev
       - name: Run tests
         run: cargo test --verbose
 
