@@ -1,7 +1,6 @@
 use std::{thread, time};
 
-use hidapi::DeviceInfo;
-use log::{debug, info, warn};
+use log::{debug, info};
 use thiserror::Error;
 
 use super::{part::*, util};
@@ -18,7 +17,7 @@ const GAMING_KB_PRODUCT_ID: u16 = 0x1020;
 
 const COMMAND_LENGTH: usize = 6;
 
-const HID_ISP_USAGE_PAGE: u16 = 0x00ff;
+const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 const HID_ISP_USAGE: u16 = 0x0001;
 
 const REPORT_ID_CMD: u8 = 0x05;
@@ -42,8 +41,8 @@ pub struct ISPDevice {
 
 #[derive(Debug, Error)]
 pub enum ISPError {
-    #[error("Duplicate devices found")]
-    DuplicateDevices(String, String),
+    #[error("Unusual number of matching HID devices, do you have two ISP devices plugged in? {0}")]
+    IrregularDeviceCount(usize),
     #[error("Device not found")]
     NotFound,
     #[error(transparent)]
@@ -88,89 +87,45 @@ impl ISPDevice {
     fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
-        let mut request_device: Option<&DeviceInfo> = None;
-        #[cfg(target_os = "windows")]
-        let mut data_device: Option<&DeviceInfo> = None;
+        let devices: Vec<_> = api.device_list()
+            .filter(|d| {
+                d.vendor_id() == GAMING_KB_VENDOR_ID
+                    && d.product_id() == GAMING_KB_PRODUCT_ID
+                    && d.usage_page() == HID_ISP_USAGE_PAGE
+                    && d.usage() == HID_ISP_USAGE
+            })
+            .collect();
 
-        let mut device_index = 0;
-
-        for device_info in api.device_list() {
-            if !(device_info.vendor_id() == GAMING_KB_VENDOR_ID
-                && device_info.product_id() == GAMING_KB_PRODUCT_ID)
-            {
-                continue;
-            }
-
-            if !(device_info.usage_page() == HID_ISP_USAGE_PAGE && device_info.usage() == HID_ISP_USAGE)
-            {
-                continue;
-            }
-
-            let path = device_info.path();
-            let path_str = path.to_str().unwrap();
-
-            debug!("Enumerating: {} {:#06x} {:#06x}", path_str, device_info.usage(), device_info.usage_page());
-
-            #[cfg(target_os = "windows")]
-            {
-                // Windows requires that we use specific devices for requests and data
-                // https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/hidclass-hardware-ids-for-top-level-collections
-                if device_index == 0 {
-                    if let Some(request_device) = request_device {
-                        return Err(ISPError::DuplicateDevices(
-                            request_device.path().to_str().unwrap().to_owned(),
-                            path_str.to_owned(),
-                        ));
-                    }
-                    request_device = Some(device_info);
-                    continue;
-                }
-
-                if device_index == 1 {
-                    if let Some(data_device) = data_device {
-                        return Err(ISPError::DuplicateDevices(
-                            data_device.path().to_str().unwrap().to_owned(),
-                            path_str.to_owned(),
-                        ));
-                    }
-                    data_device = Some(device_info);
-                    continue;
-                }
-            };
-
-            #[cfg(not(target_os = "windows"))]
-            if let Some(request_device) = request_device {
-                if request_device.path() != path {
-                    warn!("Duplicate device found. Only the first one will be used");
-                }
-                continue;
-            } else {
-                request_device = Some(device_info);
-                continue;
-            };
-
-            device_index += 1;
+        let device_count = devices.len();
+        if device_count == 0 {
+            return Err(ISPError::NotFound)
         }
 
-        if let Some(request_device) = request_device {
+        #[cfg(not(target_os = "windows"))]
+        if device_count == 1 {
+            let request_device = devices.first().unwrap();
             debug!("Request device: {:?}", request_device.path());
-            #[cfg(target_os = "windows")]
-            if let Some(data_device) = data_device {
-                debug!("Data device: {:?}", data_device.path());
-                return Ok(HIDDevices {
-                    request: api.open_path(request_device.path()).unwrap(),
-                    data: api.open_path(data_device.path()).unwrap(),
-                });
-            } else {
-                return Err(ISPError::NotFound);
-            }
-
-            #[cfg(not(target_os = "windows"))]
             return Ok(HIDDevices {
                 request: api.open_path(request_device.path()).unwrap(),
             });
         } else {
-            Err(ISPError::NotFound)
+            return Err(ISPError::IrregularDeviceCount(device_count))
+        }
+
+        #[cfg(target_os = "windows")]
+        if device_count == 1 {
+            return Err(ISPError::IrregularDeviceCount(device_count))
+        } else if device_count == 2 {
+            let request_device = device[0];
+            let data_device = devices[1];
+            debug!("Request device: {:?}", request_device.path());
+            debug!("Data device: {:?}", data_device.path());
+            return Ok(HIDDevices {
+                request: api.open_path(request_device.path()).unwrap(),
+                data: api.open_path(data_device.path()).unwrap(),
+            });
+        } else {
+            return Err(ISPError::IrregularDeviceCount(device_count))
         }
     }
 
@@ -191,15 +146,15 @@ impl ISPDevice {
                     && d.usage() == HID_ISP_USAGE
             })
             .enumerate()
-            .find_map(|(i, _d)| {
+            .find_map(|(_i, d)| {
                 #[cfg(target_os = "windows")]
-                if (i == part.isp_index) {
-                    return Some(_d);
+                if (_i == part.isp_index) {
+                    return Some(d);
                 } else {
                     return None;
                 }
                 #[cfg(not(target_os = "windows"))]
-                Some(_d)
+                Some(d)
             });
 
         let Some(request_device_info) = request_device_info else {
