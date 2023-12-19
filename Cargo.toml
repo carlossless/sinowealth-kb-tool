@@ -19,7 +19,7 @@ thiserror = "1.0"
 [dependencies.hidapi]
 version = "2.4"
 default-features = false
-features = ["linux-static-libusb"]
+features = ["linux-static-hidraw"]
 
 [dependencies.log]
 version = "0.4"
