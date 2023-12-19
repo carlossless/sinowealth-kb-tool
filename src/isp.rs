@@ -18,6 +18,9 @@ const GAMING_KB_PRODUCT_ID: u16 = 0x1020;
 
 const COMMAND_LENGTH: usize = 6;
 
+const HID_ISP_USAGE_PAGE: u16 = 0x00ff;
+const HID_ISP_USAGE: u16 = 0x0001;
+
 const REPORT_ID_CMD: u8 = 0x05;
 const REPORT_ID_XFER: u8 = 0x06;
 
@@ -89,6 +92,8 @@ impl ISPDevice {
         #[cfg(target_os = "windows")]
         let mut data_device: Option<&DeviceInfo> = None;
 
+        let mut device_index = 0;
+
         for device_info in api.device_list() {
             if !(device_info.vendor_id() == GAMING_KB_VENDOR_ID
                 && device_info.product_id() == GAMING_KB_PRODUCT_ID)
@@ -96,16 +101,21 @@ impl ISPDevice {
                 continue;
             }
 
+            if !(device_info.usage_page() == HID_ISP_USAGE_PAGE && device_info.usage() == HID_ISP_USAGE)
+            {
+                continue;
+            }
+
             let path = device_info.path();
             let path_str = path.to_str().unwrap();
 
-            debug!("Enumerating: {}", path_str);
+            debug!("Enumerating: {} {:#06x} {:#06x}", path_str, device_info.usage(), device_info.usage_page());
 
             #[cfg(target_os = "windows")]
             {
                 // Windows requires that we use specific devices for requests and data
                 // https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/hidclass-hardware-ids-for-top-level-collections
-                if path_str.contains("Col02") {
+                if device_index == 0 {
                     if let Some(request_device) = request_device {
                         return Err(ISPError::DuplicateDevices(
                             request_device.path().to_str().unwrap().to_owned(),
@@ -116,7 +126,7 @@ impl ISPDevice {
                     continue;
                 }
 
-                if path_str.contains("Col03") {
+                if device_index == 1 {
                     if let Some(data_device) = data_device {
                         return Err(ISPError::DuplicateDevices(
                             data_device.path().to_str().unwrap().to_owned(),
@@ -138,6 +148,8 @@ impl ISPDevice {
                 request_device = Some(device_info);
                 continue;
             };
+
+            device_index += 1;
         }
 
         if let Some(request_device) = request_device {
@@ -175,17 +187,19 @@ impl ISPDevice {
             .filter(|d| {
                 d.vendor_id() == part.vendor_id
                     && d.product_id() == part.product_id
-                    && d.interface_number() == 1
+                    && d.usage_page() == HID_ISP_USAGE_PAGE
+                    && d.usage() == HID_ISP_USAGE
             })
-            .find(|_d| {
+            .enumerate()
+            .find_map(|(i, _d)| {
                 #[cfg(target_os = "windows")]
-                {
-                    return String::from_utf8_lossy(_d.path().to_bytes())
-                        .to_string()
-                        .contains("Col05");
+                if (i == part.isp_index) {
+                    return Some(_d);
+                } else {
+                    return None;
                 }
                 #[cfg(not(target_os = "windows"))]
-                true
+                Some(_d)
             });
 
         let Some(request_device_info) = request_device_info else {

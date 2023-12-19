@@ -1,12 +1,13 @@
 use phf::{phf_map, Map};
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Part {
     pub firmware_size: usize,
     pub bootloader_size: usize,
     pub page_size: usize,
     pub vendor_id: u16,
     pub product_id: u16,
+    pub isp_index: usize
 }
 
 pub const PART_NUPHY_AIR60: Part = Part {
@@ -15,6 +16,7 @@ pub const PART_NUPHY_AIR60: Part = Part {
     page_size: 2048,
     vendor_id: 0x05ac,
     product_id: 0x024f,
+    isp_index: 1,
 };
 
 pub const PART_XINMENG_K916: Part = Part {
@@ -23,6 +25,7 @@ pub const PART_XINMENG_K916: Part = Part {
     page_size: 2048,
     vendor_id: 0x258a,
     product_id: 0x00a1,
+    isp_index: 0,
 };
 
 pub const PART_RE_K70_BYK800: Part = Part {
@@ -31,6 +34,7 @@ pub const PART_RE_K70_BYK800: Part = Part {
     page_size: 2048,
     vendor_id: 0x258a,
     product_id: 0x001a,
+    isp_index: 0,
 };
 
 pub const PART_TERPORT_TR95: Part = Part {
@@ -39,6 +43,7 @@ pub const PART_TERPORT_TR95: Part = Part {
     page_size: 2048,
     vendor_id: 0x258a,
     product_id: 0x0049,
+    isp_index: 0,
 };
 
 pub const PART_REDRAGON_FIZZ_K617: Part = Part {
@@ -47,6 +52,7 @@ pub const PART_REDRAGON_FIZZ_K617: Part = Part {
     page_size: 2048,
     vendor_id: 0x258a,
     product_id: 0x0049,
+    isp_index: 0,
 };
 
 pub const PART_REDRAGON_ANIVIA_K614: Part = Part {
