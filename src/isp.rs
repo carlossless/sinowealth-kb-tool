@@ -96,6 +96,10 @@ impl ISPDevice {
             })
             .collect();
 
+        for d in &devices {
+            debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
+        }
+
         let device_count = devices.len();
         if device_count == 0 {
             return Err(ISPError::NotFound)
@@ -147,6 +151,7 @@ impl ISPDevice {
             })
             .enumerate()
             .find_map(|(_i, d)| {
+                debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
                 #[cfg(target_os = "windows")]
                 if _i == part.isp_index {
                     return Some(d);
