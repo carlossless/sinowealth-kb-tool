@@ -104,7 +104,7 @@ impl ISPDevice {
             #[cfg(not(target_os = "linux"))]
             debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
             #[cfg(target_os = "linux")]
-            debug!("Found Device: {:?} {:#06x} {:#06x}", d.path());
+            debug!("Found Device: {:?}", d.path());
         }
 
         let device_count = devices.len();
@@ -165,7 +165,7 @@ impl ISPDevice {
                 #[cfg(not(target_os = "linux"))]
                 debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
                 #[cfg(target_os = "linux")]
-                debug!("Found Device: {:?} {:#06x} {:#06x}", d.path());
+                debug!("Found Device: {:?}", d.path());
                 #[cfg(target_os = "windows")]
                 if _i == part.isp_index {
                     return Some(d);
