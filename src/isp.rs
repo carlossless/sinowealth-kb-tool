@@ -89,21 +89,21 @@ impl ISPDevice {
 
         let devices: Vec<_> = api.device_list()
             .filter(|d| {
-                #[cfg(not(all(libusb, target_os = "linux")))]
+                #[cfg(not(target_os = "linux"))]
                 return d.vendor_id() == GAMING_KB_VENDOR_ID
                     && d.product_id() == GAMING_KB_PRODUCT_ID
                     && d.usage_page() == HID_ISP_USAGE_PAGE
                     && d.usage() == HID_ISP_USAGE;
-                #[cfg(all(libusb, target_os = "linux"))]
+                #[cfg(target_os = "linux")]
                 return d.vendor_id() == GAMING_KB_VENDOR_ID
                     && d.product_id() == GAMING_KB_PRODUCT_ID;
             })
             .collect();
 
         for d in &devices {
-            #[cfg(not(all(libusb, target_os = "linux")))]
+            #[cfg(not(target_os = "linux"))]
             debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
-            #[cfg(all(libusb, target_os = "linux"))]
+            #[cfg(target_os = "linux")]
             debug!("Found Device: {:?} {:#06x} {:#06x}", d.path());
         }
 
@@ -151,20 +151,20 @@ impl ISPDevice {
         let request_device_info = api
             .device_list()
             .filter(|d| {
-                #[cfg(not(all(libusb, target_os = "linux")))]
+                #[cfg(not(target_os = "linux"))]
                 return d.vendor_id() == part.vendor_id
                     && d.product_id() == part.product_id
                     && d.usage_page() == HID_ISP_USAGE_PAGE
                     && d.usage() == HID_ISP_USAGE;
-                #[cfg(all(libusb, target_os = "linux"))]
+                #[cfg(target_os = "linux")]
                 return d.vendor_id() == part.vendor_id
                     && d.product_id() == part.product_id;
             })
             .enumerate()
             .find_map(|(_i, d)| {
-                #[cfg(not(all(libusb, target_os = "linux")))]
+                #[cfg(not(target_os = "linux"))]
                 debug!("Found Device: {:?} {:#06x} {:#06x}", d.path(), d.usage_page(), d.usage());
-                #[cfg(all(libusb, target_os = "linux"))]
+                #[cfg(target_os = "linux")]
                 debug!("Found Device: {:?} {:#06x} {:#06x}", d.path());
                 #[cfg(target_os = "windows")]
                 if _i == part.isp_index {
