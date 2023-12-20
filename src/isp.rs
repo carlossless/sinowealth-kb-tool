@@ -41,7 +41,7 @@ pub struct ISPDevice {
 
 #[derive(Debug, Error)]
 pub enum ISPError {
-    #[error("Unusual number of matching HID devices, do you have two ISP devices plugged in? {0}")]
+    #[error("Unusual number of matching HID devices: {0}")]
     IrregularDeviceCount(usize),
     #[error("Device not found")]
     NotFound,
