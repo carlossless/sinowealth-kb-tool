@@ -8,7 +8,7 @@ pub struct Part {
     pub vendor_id: u16,
     pub product_id: u16,
     /// Index of usage_page == 0xff00 && usage == 0x0001 collections at which the isp report appears in.
-    /// Important only for windows because the OS hid API does not merge the collections into one device
+    /// Important only for windows because its HIDAPI requires us to use a specific device for each collection
     pub isp_index: usize
 }
 
