@@ -85,7 +85,7 @@ pub static PARTS: Map<&'static str, Part> = phf_map! {
     "terport-tr95" => PART_TERPORT_TR95,
     "redragon-k617-fizz" => PART_REDRAGON_FIZZ_K617,
     "redragon-k614-anivia" => PART_REDRAGON_ANIVIA_K614,
-    "royalkludge-rk100" => PART_ROYALKLUDGE_RK100
+    "royalkludge-rk100" => PART_ROYALKLUDGE_RK100,
 };
 
 impl Part {
