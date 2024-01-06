@@ -55,6 +55,12 @@ pub const PART_XINMENG_K916: Part = Part {
     ..PART_BASE_SH68F90
 };
 
+pub const PART_XINMENG_XM_RF68: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x002a,
+    ..PART_BASE_SH68F90
+};
+
 pub const PART_RE_K70_BYK800: Part = Part {
     vendor_id: 0x258a,
     product_id: 0x001a,
@@ -119,6 +125,7 @@ pub static PARTS: Map<&'static str, Part> = phf_map! {
     "nuphy-air96" => PART_NUPHY_AIR60, // same as nuphy-air60
     "nuphy-halo65" => PART_NUPHY_AIR60, // same as nuphy-air60
     "xinmeng-k916" => PART_XINMENG_K916,
+    "xinmeng-xm-rf68" => PART_XINMENG_XM_RF68,
     "re-k70-byk800" => PART_RE_K70_BYK800,
     "terport-tr95" => PART_TERPORT_TR95,
     "redragon-k617-fizz" => PART_REDRAGON_FIZZ_K617,
