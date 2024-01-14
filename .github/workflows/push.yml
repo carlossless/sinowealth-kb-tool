@@ -36,6 +36,9 @@ jobs:
             ~/.cargo/registry
             ./target
           key: test-cargo-registry
+      - name: Install and configure dependencies
+        run: |
+          sudo apt-get install -qq libusb-1.0.0-dev
       - name: Run tests
         run: cargo test --verbose
 
