@@ -8,6 +8,8 @@ pub struct Part {
     pub vendor_id: u16,
     pub product_id: u16,
 
+    /// USB interface number with the ISP report
+    pub isp_iface_num: u8,
     // The following properties and values are important only for windows support because its
     // HIDAPI requires us to use a specific device for each collection
     /// HID collection `usage_page` with the ISP report
@@ -26,6 +28,7 @@ pub const PART_BASE_DEFAULT: Part = Part {
     vendor_id: 0x0000,
     product_id: 0x0000,
 
+    isp_iface_num: 1,
     isp_usage_page: 0xff00,
     isp_usage: 0x0001,
     isp_index: 0,
@@ -52,6 +55,12 @@ pub const PART_XINMENG_K916: Part = Part {
     vendor_id: 0x258a,
     product_id: 0x00a1,
     isp_index: 1,
+    ..PART_BASE_SH68F90
+};
+
+pub const PART_XINMENG_XM_RF68: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x002a,
     ..PART_BASE_SH68F90
 };
 
@@ -94,15 +103,33 @@ pub const PART_GENESIS_THOR_300_RGB: Part = Part {
     ..PART_BASE_SH68F90
 };
 
+pub const PART_ROYALKLUDGE_RK61: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x00c7,
+    ..PART_BASE_SH68F90
+};
+
 pub const PART_ROYALKLUDGE_RK68: Part = Part {
     vendor_id: 0x258a,
     product_id: 0x00a9,
     ..PART_BASE_SH68F90
 };
 
+pub const PART_ROYALKLUDGE_RK71: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x00ea,
+    ..PART_BASE_SH68F90
+};
+
 pub const PART_ROYALKLUDGE_RK100: Part = Part {
     vendor_id: 0x258a,
     product_id: 0x0056,
+    ..PART_BASE_SH68F90
+};
+
+pub const PART_DIGITALALLIANCE_MECA_WARRIOR_X: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x0090,
     ..PART_BASE_SH68F90
 };
 
@@ -114,20 +141,24 @@ pub const PART_WEIKAV_SUGAR65: Part = Part {
 };
 
 pub static PARTS: Map<&'static str, Part> = phf_map! {
+    "digitalalliance-meca-warrior-x" => PART_DIGITALALLIANCE_MECA_WARRIOR_X,
+    "genesis-thor-300-rgb" => PART_GENESIS_THOR_300_RGB,
+    "genesis-thor-300" => PART_GENESIS_THOR_300,
     "nuphy-air60" => PART_NUPHY_AIR60,
     "nuphy-air75" => PART_NUPHY_AIR60, // same as nuphy-air60
     "nuphy-air96" => PART_NUPHY_AIR60, // same as nuphy-air60
     "nuphy-halo65" => PART_NUPHY_AIR60, // same as nuphy-air60
-    "xinmeng-k916" => PART_XINMENG_K916,
     "re-k70-byk800" => PART_RE_K70_BYK800,
-    "terport-tr95" => PART_TERPORT_TR95,
-    "redragon-k617-fizz" => PART_REDRAGON_FIZZ_K617,
     "redragon-k614-anivia" => PART_REDRAGON_ANIVIA_K614,
-    "royalkludge-rk68" => PART_ROYALKLUDGE_RK68,
+    "redragon-k617-fizz" => PART_REDRAGON_FIZZ_K617,
     "royalkludge-rk100" => PART_ROYALKLUDGE_RK100,
-    "genesis-thor-300" => PART_GENESIS_THOR_300,
-    "genesis-thor-300-rgb" => PART_GENESIS_THOR_300_RGB,
+    "royalkludge-rk61" => PART_ROYALKLUDGE_RK61,
+    "royalkludge-rk68" => PART_ROYALKLUDGE_RK68,
+    "royalkludge-rk71" => PART_ROYALKLUDGE_RK71,
+    "terport-tr95" => PART_TERPORT_TR95,
     "weikav-sugar65" => PART_WEIKAV_SUGAR65,
+    "xinmeng-k916" => PART_XINMENG_K916,
+    "xinmeng-xm-rf68" => PART_XINMENG_XM_RF68,
 };
 
 impl Part {

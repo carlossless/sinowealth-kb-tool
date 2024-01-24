@@ -33,6 +33,7 @@ sinowealth-kb-tool read \
     --firmware_size 61440 \
     --bootloader_size 4096 \ # optional
     --page_size 2048 \ # optional
+    --isp_iface_num 1 \ # optional
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
@@ -54,6 +55,7 @@ sinowealth-kb-tool write \
     --firmware_size 61440 \
     --bootloader_size 4096 \ # optional
     --page_size 2048 \ # optional
+    --isp_iface_num 1 \ # optional
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
@@ -64,20 +66,24 @@ sinowealth-kb-tool write \
 
 | Keyboard | ISP MD5 | MCU | MCU Label | Tested Read | Tested Write |
 | -------- | ------- | --- | --------- | ----------- | ------------ |
+| Digital Alliance Meca Warrior X | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ❓ |
+| [Genesis Thor 300 RGB](https://genesis-zone.com/product/thor-300-rgb-brown) | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ✅ |
+| [Genesis Thor 300](https://genesis-zone.com/product/thor-300-outemu-blue) | e57490acebcaabfcff84a0ff013955d9 | SH68F881 | SH68F881W | ✅ | ✅ |
+| Hykker X Range 2017 (RE-K70-BYK800) | 13df4ce2933f9654ffef80d6a3c27199 | SH68F881 | BYK801 | ✅ | ❓ |
 | [NuPhy Air60](https://nuphy.com/products/air60) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK916 | ✅ | ✅ |
 | [NuPhy Air75](https://nuphy.com/products/air75) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK916 | ✅ | ❓ |
 | [NuPhy Air96](https://nuphy.com/products/air96-wireless-mechanical-keyboard) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK916 | ✅ | ❓ |
 | [NuPhy Halo65](https://nuphy.com/products/halo65) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK916 | ✅ | ❓ |
-| Terport TR95 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ❓ |
-| [Redragon K617 FIZZ 60%](https://www.redragonzone.com/collections/keyboard/products/redragon-k617-fizz-60-wired-rgb-gaming-keyboard-61-keys-compact-mechanical-keyboard) | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ❓ |
 | [Redragon K614 Anivia 60%](https://www.redragonzone.com/products/redragon-k614-anivia-60-ultra-thin-wired-mechanical-keyboard) | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ✅ |
-| Weikav Sugar65 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ❓ |
-| [Royal Kludge RK68](https://rkgamingstore.com/products/rk68-68-wireless-gaming-keyboard) | SH68F90? | ❓ | ❓ | ✅ | ❓ |
+| [Redragon K617 FIZZ 60%](https://www.redragonzone.com/collections/keyboard/products/redragon-k617-fizz-60-wired-rgb-gaming-keyboard-61-keys-compact-mechanical-keyboard) | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ❓ |
 | [Royal Kludge RK100](http://en.rkgaming.com/product/14/) | cfc8661da8c9d7e351b36c0a763426aa | SH68F90? | BYK916 | ✅ | ❓ |
+| [Royal Kludge RK61](http://en.rkgaming.com/product/11/) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90? | BYK916 | ✅ | ✅ |
+| [Royal Kludge RK68](https://rkgamingstore.com/products/rk68-68-wireless-gaming-keyboard) | SH68F90? | ❓ | ❓ | ✅ | ❓ |
+| [Royal Kludge RK71](http://en.rkgaming.com/product/12/) | cfc8661da8c9d7e351b36c0a763426aa | SH68F90? | ❓ | ✅ | ✅ |
+| Terport TR95 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ❓ |
+| Weikav Sugar65 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ❓ |
 | Xinmeng K916 | cfc8661da8c9d7e351b36c0a763426aa | SH68F90 | ❓ | ✅ | ✅ |
-| Hykker X Range 2017 (RE-K70-BYK800) | 13df4ce2933f9654ffef80d6a3c27199 | SH68F881 | BYK801 | ✅ | ❓ |
-| [Genesis Thor 300](https://genesis-zone.com/product/thor-300-outemu-blue) | e57490acebcaabfcff84a0ff013955d9 | SH68F881 | SH68F881W | ✅ | ✅ |
-| [Genesis Thor 300 RGB](https://genesis-zone.com/product/thor-300-rgb-brown) | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ✅ |
+| Xinmeng XM-RF68 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90U | ✅ | ✅ |
 
 ## Prerequisites
 

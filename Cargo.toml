@@ -4,7 +4,7 @@ description = """
 A utility for reading and writing flash contents on Sinowealth 8051-based devices
 """
 repository = "https://github.com/carlossless/sinowealth-kb-tool"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 license = "MIT"
 rust-version = "1.65"
@@ -23,7 +23,7 @@ features = ["linux-static-libusb"]
 
 [dependencies.log]
 version = "0.4"
-features = ["max_level_debug", "release_max_level_info"]
+features = ["max_level_debug"]
 
 [dependencies.simple_logger]
 version = "4.3"
