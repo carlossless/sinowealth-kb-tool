@@ -75,6 +75,33 @@ impl ISPDevice {
         })
     }
 
+    /// Prints all connected devices to the console.
+    pub fn print_connected_devices() -> Result<(), ISPError> {
+        let api = ISPDevice::hidapi();
+
+        info!("Listing all connected devices...");
+        let devices: Vec<_> = api.device_list().collect();
+
+        for d in &devices {
+            #[cfg(not(target_os = "linux"))]
+            info!(
+                "Found Device(vid={:#06x}, pid={:#06x}): manufacturer={:?} product={:?} path={:?} usage_page={:#06x} usage={:#06x}",
+                d.vendor_id(),
+                d.product_id(),
+                d.manufacturer_string(),
+                d.product_string(),
+                d.path(),
+                d.usage_page(),
+                d.usage()
+            );
+            #[cfg(target_os = "linux")]
+            info!("Found Device: {:?}", d.path());
+        }
+        info!("Found {} devices", devices.len());
+
+        Ok(())
+    }
+
     fn hidapi() -> HidApi {
         let api = HidApi::new().unwrap();
 

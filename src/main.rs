@@ -46,6 +46,11 @@ fn cli() -> Command {
         .arg_required_else_help(true)
         .author("Karolis Stasaitis")
         .subcommand(
+            Command::new("list")
+                .short_flag('l')
+                .about("List all connected devices and their identifiers. This is useful to find the manufacturer and product id for your keyboard.")
+        )
+        .subcommand(
             Command::new("read")
                 .short_flag('r')
                 .about("Read flash contents. (Intel HEX)")
@@ -137,6 +142,9 @@ fn err_main() -> Result<(), CLIError> {
 
             let isp = ISPDevice::new(part).map_err(CLIError::from)?;
             isp.write_cycle(&mut firmware).map_err(CLIError::from)?;
+        }
+        Some(("list", _)) => {
+            ISPDevice::print_connected_devices().map_err(CLIError::from)?;
         }
         _ => unreachable!(),
     }
