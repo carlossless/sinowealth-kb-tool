@@ -81,6 +81,7 @@ sinowealth-kb-tool write \
 | Royal Kludge RK68 BT Dual | cfc8661da8c9d7e351b36c0a763426aa | SH68F90? | BYK901 | ✅ | ✅ |
 | Royal Kludge RK68 ISO Return | ❓ | SH68F90? | BYK916 | ✅ | ❓ |
 | [Royal Kludge RK71](http://en.rkgaming.com/product/12/) | cfc8661da8c9d7e351b36c0a763426aa | SH68F90? | ❓ | ✅ | ✅ |
+| [Royal Kludge RK84](http://en.rkgaming.com/product/16/) | 7658c72d2cdc04ab66f1216a206f6913 | SH68F90? | BYK916 | ✅ | ✅ |
 | Terport TR95 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ❓ |
 | Weikav Sugar65 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ❓ |
 | Xinmeng K916 | cfc8661da8c9d7e351b36c0a763426aa | SH68F90 | ❓ | ✅ | ✅ |
