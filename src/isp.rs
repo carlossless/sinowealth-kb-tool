@@ -29,6 +29,8 @@ const CMD_INIT_READ: u8 = 0x52;
 const CMD_INIT_WRITE: u8 = 0x57;
 const CMD_ERASE: u8 = 0x45;
 
+const CMD_REBOOT: u8 = 0x5a;
+
 const XFER_READ_PAGE: u8 = 0x72;
 const XFER_WRITE_PAGE: u8 = 0x77;
 
@@ -282,6 +284,13 @@ impl ISPDevice {
             ReadType::Full => self.read(0, self.part.firmware_size + self.part.bootloader_size)?,
         };
 
+        // The Royal Kludge RK84 ISO Return will be stuck in ISP mode otherwise
+        if self.part.product_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.product_id
+            && self.part.vendor_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.vendor_id
+        {
+            self.reboot()?;
+        }
+
         return Ok(firmware);
     }
 
@@ -301,6 +310,14 @@ impl ISPDevice {
         util::verify(firmware, &read_back).map_err(ISPError::from)?;
 
         self.enable_firmware()?;
+
+        // The Royal Kludge RK84 ISO Return will be stuck in ISP mode otherwise
+        if self.part.product_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.product_id
+            && self.part.vendor_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.vendor_id
+        {
+            self.reboot()?;
+        }
+
         Ok(())
     }
 
@@ -425,6 +442,16 @@ impl ISPDevice {
         self.request_device
             .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
+        thread::sleep(time::Duration::from_millis(2000));
+        Ok(())
+    }
+
+    fn reboot(&self) -> Result<(), ISPError> {
+        info!("Rebooting...");
+        let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_REBOOT, 0, 0, 0, 0];
+        // explicitly ignore the result
+        let _ = self.request_device.send_feature_report(&cmd);
+
         thread::sleep(time::Duration::from_millis(2000));
         Ok(())
     }

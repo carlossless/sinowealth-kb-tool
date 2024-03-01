@@ -1,6 +1,6 @@
 use phf::{phf_map, Map};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Part {
     pub firmware_size: usize,
     pub bootloader_size: usize,
