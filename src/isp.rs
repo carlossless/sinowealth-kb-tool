@@ -1,4 +1,4 @@
-use std::{thread, time};
+use std::{mem, thread, time};
 
 use log::{debug, info};
 use thiserror::Error;
@@ -164,8 +164,17 @@ impl ISPDevice {
         if device_count == 1 {
             return Err(ISPError::IrregularDeviceCount(device_count));
         } else if device_count == 2 {
-            let request_device = devices[0];
-            let data_device = devices[1];
+            let mut request_device = devices[0];
+            let mut data_device = devices[1];
+
+            if request_device
+                .path()
+                .to_str()
+                .map_or(false, |path| path.contains("&0002"))
+            {
+                mem::swap(&mut request_device, &mut data_device);
+            }
+
             debug!("Request device: {:?}", request_device.path());
             debug!("Data device: {:?}", data_device.path());
             return Ok(HIDDevices {
