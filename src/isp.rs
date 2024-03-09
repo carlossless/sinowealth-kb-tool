@@ -78,11 +78,11 @@ impl ISPDevice {
         })
     }
 
-    /// Prints all connected devices to the console.
+    /// Prints out all connected HID devices and their paths.
     pub fn print_connected_devices() -> Result<(), ISPError> {
         let api = ISPDevice::hidapi();
 
-        info!("Listing all connected devices...");
+        info!("Listing all connected HID devices...");
         let mut devices: Vec<_> = api.device_list().collect();
 
         devices.sort_by_key(|d| d.path());
@@ -90,17 +90,24 @@ impl ISPDevice {
         for d in &devices {
             #[cfg(not(target_os = "linux"))]
             info!(
-                "Found Device(vid={:#06x}, pid={:#06x}): manufacturer={:?} product={:?} path={:?} usage_page={:#06x} usage={:#06x}",
+                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" usage_page={:#06x} usage={:#06x}",
+                d.path().to_str().unwrap(),
                 d.vendor_id(),
                 d.product_id(),
-                d.manufacturer_string(),
-                d.product_string(),
-                d.path(),
+                d.manufacturer_string().unwrap_or("None"),
+                d.product_string().unwrap_or("None"),
                 d.usage_page(),
                 d.usage()
             );
             #[cfg(target_os = "linux")]
-            info!("Found Device: {:?}", d.path());
+            info!(
+                "{:}: ID {:#04x}:{:#04x} manufacturer=\"{:}\" product=\"{:}\"",
+                d.path().to_str().unwrap(),
+                d.vendor_id(),
+                d.product_id(),
+                d.manufacturer_string().unwrap_or("None"),
+                d.product_string().unwrap_or("None")
+            );
         }
         info!("Found {} devices", devices.len());
 
