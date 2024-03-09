@@ -28,7 +28,6 @@ const CMD_ENABLE_FIRMWARE: u8 = 0x55;
 const CMD_INIT_READ: u8 = 0x52;
 const CMD_INIT_WRITE: u8 = 0x57;
 const CMD_ERASE: u8 = 0x45;
-
 const CMD_REBOOT: u8 = 0x5a;
 
 const XFER_READ_PAGE: u8 = 0x72;
@@ -293,7 +292,9 @@ impl ISPDevice {
             ReadType::Full => self.read(0, self.part.firmware_size + self.part.bootloader_size)?,
         };
 
-        self.reboot()?;
+        if self.part.reboot {
+            self.reboot()?;
+        }
 
         return Ok(firmware);
     }
@@ -315,7 +316,9 @@ impl ISPDevice {
 
         self.enable_firmware()?;
 
-        self.reboot()?;
+        if self.part.reboot {
+            self.reboot()?;
+        }
 
         Ok(())
     }
