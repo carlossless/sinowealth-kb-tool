@@ -83,7 +83,9 @@ impl ISPDevice {
         let api = ISPDevice::hidapi();
 
         info!("Listing all connected devices...");
-        let devices: Vec<_> = api.device_list().collect();
+        let mut devices: Vec<_> = api.device_list().collect();
+
+        devices.sort_by_key(|d| d.path());
 
         for d in &devices {
             #[cfg(not(target_os = "linux"))]

@@ -37,7 +37,7 @@ sinowealth-kb-tool read \
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
-    --reboot true \ # optional
+    --reboot false \ # optional
     foobar.hex
 ```
 
@@ -60,7 +60,7 @@ sinowealth-kb-tool write \
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
-    --reboot true \ # optional
+    --reboot false \ # optional
     foobar.hex
 ```
 
@@ -105,9 +105,14 @@ Make sure your user is part of the `plugdev` group.
 
 ### macOS
 
-Ensure that your terminal application has access to input devices/input monitoring. <verify this>
+If you encounter errors like:
+```
+hid_open_path: failed to open IOHIDDevice from mach entry...
+```
 
-## Platform / Bootloader Support
+Ensure that your terminal application has [access to input monitoring](https://support.apple.com/guide/mac-help/control-access-to-input-monitoring-on-mac-mchl4cedafb6/mac).
+
+## Bootloader / Platform Support
 
 | Bootloader                       | Windows  | macOS    | Linux |
 | -------------------------------- | -------- | -------- | ----- |
