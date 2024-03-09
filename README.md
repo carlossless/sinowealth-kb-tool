@@ -93,7 +93,7 @@ sinowealth-kb-tool write \
 
 ### Platforms
 
-| Bootloader                       | Windows  | macOS    | Linux |
+| ISP MD5                          | Windows  | macOS    | Linux |
 | -------------------------------- | -------- | -------- | ----- |
 | 3e0ebd0c440af5236d7ff8872343f85d | ok       | ok       | ok    |
 | cfc8661da8c9d7e351b36c0a763426aa | ok       | fail[^1] | ok    |
@@ -105,7 +105,7 @@ sinowealth-kb-tool write \
 
 ### Functions
 
-| Bootloader                       | Reboot |
+| ISP MD5                          | Reboot |
 | -------------------------------- | ------ |
 | 3e0ebd0c440af5236d7ff8872343f85d | no     |
 | cfc8661da8c9d7e351b36c0a763426aa | yes    |
