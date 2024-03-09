@@ -132,7 +132,7 @@ impl ISPDevice {
                     && d.interface_number() == 0;
             })
             .collect();
-        
+
         devices.sort_by_key(|d| d.path());
 
         for d in &devices {
