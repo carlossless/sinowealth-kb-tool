@@ -89,6 +89,30 @@ sinowealth-kb-tool write \
 | Xinmeng K916 | cfc8661da8c9d7e351b36c0a763426aa | SH68F90 | ❓ | ✅ | ✅ |
 | Xinmeng XM-RF68 | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90U | ✅ | ✅ |
 
+## Bootloader Support
+
+### Platforms
+
+| Bootloader                       | Windows  | macOS    | Linux |
+| -------------------------------- | -------- | -------- | ----- |
+| 3e0ebd0c440af5236d7ff8872343f85d | ok       | ok       | ok    |
+| cfc8661da8c9d7e351b36c0a763426aa | ok       | fail[^1] | ok    |
+| 2d169670eae0d36eae8188562c1f66e8 | ok       | ?        | ok    |
+| e57490acebcaabfcff84a0ff013955d9 | ok       | ?        | ?     |
+| 13df4ce2933f9654ffef80d6a3c27199 | ?        | ?        | ok    |
+
+[^1]: macOS does not recognize the composite device as an HID device
+
+### Functions
+
+| Bootloader                       | Reboot |
+| -------------------------------- | ------ |
+| 3e0ebd0c440af5236d7ff8872343f85d | no     |
+| cfc8661da8c9d7e351b36c0a763426aa | yes    |
+| 2d169670eae0d36eae8188562c1f66e8 | ?      |
+| e57490acebcaabfcff84a0ff013955d9 | ?      |
+| 13df4ce2933f9654ffef80d6a3c27199 | ?      |
+
 ## Prerequisites
 
 ### Linux
@@ -111,18 +135,6 @@ hid_open_path: failed to open IOHIDDevice from mach entry...
 ```
 
 Ensure that your terminal application has [access to input monitoring](https://support.apple.com/guide/mac-help/control-access-to-input-monitoring-on-mac-mchl4cedafb6/mac).
-
-## Bootloader / Platform Support
-
-| Bootloader                       | Windows  | macOS    | Linux |
-| -------------------------------- | -------- | -------- | ----- |
-| 3e0ebd0c440af5236d7ff8872343f85d | ok       | ok       | ok    |
-| cfc8661da8c9d7e351b36c0a763426aa | ok       | fail[^1] | ok    |
-| 2d169670eae0d36eae8188562c1f66e8 | ok       | ?        | ok    |
-| e57490acebcaabfcff84a0ff013955d9 | ok       | ?        | ?     |
-| 13df4ce2933f9654ffef80d6a3c27199 | ?        | ?        | ok    |
-
-[^1]: macOS does not recognize the composite device as an HID device
 
 ## Acknowledgments
 
