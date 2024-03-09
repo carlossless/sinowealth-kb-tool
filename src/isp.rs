@@ -1,4 +1,4 @@
-use std::{mem, thread, time};
+use std::{thread, time};
 
 use log::{debug, info};
 use thiserror::Error;
@@ -17,7 +17,9 @@ const GAMING_KB_PRODUCT_ID: u16 = 0x1020;
 
 const COMMAND_LENGTH: usize = 6;
 
+#[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE_PAGE: u16 = 0xff00;
+#[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE: u16 = 0x0001;
 
 const REPORT_ID_CMD: u8 = 0x05;
@@ -115,7 +117,7 @@ impl ISPDevice {
     fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
-        let devices: Vec<_> = api
+        let mut devices: Vec<_> = api
             .device_list()
             .filter(|d| {
                 #[cfg(not(target_os = "linux"))]
@@ -130,6 +132,8 @@ impl ISPDevice {
                     && d.interface_number() == 0;
             })
             .collect();
+        
+        devices.sort_by_key(|d| d.path());
 
         for d in &devices {
             #[cfg(not(target_os = "linux"))]
@@ -165,15 +169,6 @@ impl ISPDevice {
         } else if device_count == 2 {
             let mut request_device = devices[0];
             let mut data_device = devices[1];
-
-            if request_device
-                .path()
-                .to_str()
-                .map_or(false, |path| path.contains("&0002"))
-            {
-                mem::swap(&mut request_device, &mut data_device);
-            }
-
             debug!("Request device: {:?}", request_device.path());
             debug!("Data device: {:?}", data_device.path());
             return Ok(HIDDevices {
