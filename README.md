@@ -37,6 +37,7 @@ sinowealth-kb-tool read \
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
+    --reboot true \ # optional
     foobar.hex
 ```
 
@@ -59,6 +60,7 @@ sinowealth-kb-tool write \
     --isp_usage_page 0xff00 \ # optional
     --isp_usage 0x0001 \ # optional
     --isp_index 0 \ # optional
+    --reboot true \ # optional
     foobar.hex
 ```
 
@@ -103,15 +105,19 @@ Make sure your user is part of the `plugdev` group.
 
 ### macOS
 
-## Platform Support
+Ensure that your terminal application has access to input devices/input monitoring. <verify this>
 
-| Bootloader                       | Windows | macOS | Linux |
-| -------------------------------- | ------- | ----- | ----- |
-| 3e0ebd0c440af5236d7ff8872343f85d | true    | true  | true  |
-| cfc8661da8c9d7e351b36c0a763426aa | true    | false | true  |
-| 2d169670eae0d36eae8188562c1f66e8 | check   | check | check |
-| e57490acebcaabfcff84a0ff013955d9 | check   | check | check |
-| 13df4ce2933f9654ffef80d6a3c27199 | check   | check | check |
+## Platform / Bootloader Support
+
+| Bootloader                       | Windows  | macOS    | Linux |
+| -------------------------------- | -------- | -------- | ----- |
+| 3e0ebd0c440af5236d7ff8872343f85d | ok       | ok       | ok    |
+| cfc8661da8c9d7e351b36c0a763426aa | ok       | fail[^1] | ok    |
+| 2d169670eae0d36eae8188562c1f66e8 | ok       | ?        | ok    |
+| e57490acebcaabfcff84a0ff013955d9 | ok       | ?        | ?     |
+| 13df4ce2933f9654ffef80d6a3c27199 | ?        | ?        | ok    |
+
+[^1]: macOS does not recognize the composite device as an HID device
 
 ## Acknowledgments
 

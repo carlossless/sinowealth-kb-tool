@@ -167,8 +167,8 @@ impl ISPDevice {
         if device_count == 1 {
             return Err(ISPError::IrregularDeviceCount(device_count));
         } else if device_count == 2 {
-            let mut request_device = devices[0];
-            let mut data_device = devices[1];
+            let request_device = devices[0];
+            let data_device = devices[1];
             debug!("Request device: {:?}", request_device.path());
             debug!("Data device: {:?}", data_device.path());
             return Ok(HIDDevices {
