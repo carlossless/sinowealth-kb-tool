@@ -293,12 +293,7 @@ impl ISPDevice {
             ReadType::Full => self.read(0, self.part.firmware_size + self.part.bootloader_size)?,
         };
 
-        // The Royal Kludge RK84 ISO Return will be stuck in ISP mode otherwise
-        if self.part.product_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.product_id
-            && self.part.vendor_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.vendor_id
-        {
-            self.reboot()?;
-        }
+        self.reboot()?;
 
         return Ok(firmware);
     }
@@ -320,12 +315,7 @@ impl ISPDevice {
 
         self.enable_firmware()?;
 
-        // The Royal Kludge RK84 ISO Return will be stuck in ISP mode otherwise
-        if self.part.product_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.product_id
-            && self.part.vendor_id == PART_ROYALKLUDGE_RK84_ISO_RETURN.vendor_id
-        {
-            self.reboot()?;
-        }
+        self.reboot()?;
 
         Ok(())
     }
