@@ -1,4 +1,4 @@
-use std::{default, thread, time};
+use std::{thread, time};
 
 use log::{debug, info};
 use thiserror::Error;
