@@ -98,6 +98,7 @@ pub const PART_REDRAGON_ANIVIA_K614: Part = Part {
 pub const PART_REDRAGON_K641_SHACO_PRO: Part = Part {
     vendor_id: 0x258a,
     product_id: 0x0049,
+    isp_index: 1,
     ..PART_BASE_SH68F90
 };
 
