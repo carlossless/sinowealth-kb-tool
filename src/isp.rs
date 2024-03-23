@@ -154,13 +154,20 @@ impl ISPDevice {
         for d in &devices {
             #[cfg(not(target_os = "linux"))]
             debug!(
-                "Found Device: {:?} {:#06x} {:#06x}",
+                "Found ISP Device: {:#06x} {:#06x} {:?} {:#06x} {:#06x}",
+                d.vendor_id(),
+                d.product_id(),
                 d.path(),
                 d.usage_page(),
                 d.usage()
             );
             #[cfg(target_os = "linux")]
-            debug!("Found Device: {:?}", d.path());
+            debug!(
+                "Found ISP Device: {:#06x} {:#06x} {:?}",
+                d.vendor_id(),
+                d.product_id(),
+                d.path()
+            );
         }
 
         let device_count = devices.len();
