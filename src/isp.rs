@@ -132,13 +132,19 @@ impl ISPDevice {
             .filter(|d| {
                 #[cfg(not(target_os = "linux"))]
                 return d.vendor_id() == GAMING_KB_VENDOR_ID
-                    && (d.product_id() == GAMING_KB_PRODUCT_ID || d.product_id() == GAMING_KB_V2_PRODUCT_ID)
+                    && matches!(
+                        d.product_id(),
+                        GAMING_KB_PRODUCT_ID | GAMING_KB_V2_PRODUCT_ID
+                    )
                     && d.interface_number() == 0
                     && d.usage_page() == HID_ISP_USAGE_PAGE
                     && d.usage() == HID_ISP_USAGE;
                 #[cfg(target_os = "linux")]
                 return d.vendor_id() == GAMING_KB_VENDOR_ID
-                    && (d.product_id() == GAMING_KB_PRODUCT_ID || d.product_id() == GAMING_KB_V2_PRODUCT_ID)
+                    && matches!(
+                        d.product_id(),
+                        GAMING_KB_PRODUCT_ID | GAMING_KB_V2_PRODUCT_ID
+                    )
                     && d.interface_number() == 0;
             })
             .collect();
