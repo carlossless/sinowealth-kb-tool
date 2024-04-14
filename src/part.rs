@@ -189,8 +189,21 @@ pub const PART_REDRAGON_K658_PRO_SE: Part = Part {
     ..PART_BASE_SH68F90
 };
 
+pub const PART_REDRAGON_K530_DRACONIC_PRO: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x0049,
+    ..PART_BASE_SH68F90
+};
+
+pub const PART_EYOOSO_Z11: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x002a,
+    ..PART_BASE_SH68F90
+};
+
 pub static PARTS: Map<&'static str, Part> = phf_map! {
     "digitalalliance-meca-warrior-x" => PART_DIGITALALLIANCE_MECA_WARRIOR_X,
+    "eyooso-z11" => PART_EYOOSO_Z11,
     "genesis-thor-300-rgb" => PART_GENESIS_THOR_300_RGB,
     "genesis-thor-300" => PART_GENESIS_THOR_300,
     "glorious-model-o" => PART_GLORIOUS_MODEL_O,
@@ -200,6 +213,7 @@ pub static PARTS: Map<&'static str, Part> = phf_map! {
     "nuphy-air96" => PART_NUPHY_AIR60, // same as nuphy-air60
     "nuphy-halo65" => PART_NUPHY_AIR60, // same as nuphy-air60
     "re-k70-byk800" => PART_RE_K70_BYK800,
+    "redragon-k530-draconic-pro" => PART_REDRAGON_K530_DRACONIC_PRO,
     "redragon-k614-anivia" => PART_REDRAGON_ANIVIA_K614,
     "redragon-k617-fizz" => PART_REDRAGON_FIZZ_K617,
     "redragon-k641-shaco-pro" => PART_REDRAGON_K641_SHACO_PRO,
