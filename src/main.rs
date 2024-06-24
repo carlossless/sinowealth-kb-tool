@@ -54,6 +54,7 @@ fn cli() -> Command {
         )
         .subcommand(
             Command::new("convert")
+                .short_flag('c')
                 .about("Convert payload from bootloader to JTAG and vice versa.")
                 .arg(arg!(-d --direction <DIRECTION> "direction of conversion").value_parser(["to_jtag", "to_isp"]).required(true))
                 .part_args()
@@ -178,31 +179,38 @@ fn err_main() -> Result<(), CLIError> {
             let mut file_buf = Vec::new();
             file.read_to_end(&mut file_buf).map_err(CLIError::from)?;
             let file_str = String::from_utf8_lossy(&file_buf[..]);
-            let mut firmware = from_ihex(&file_str, part.firmware_size).map_err(CLIError::from)?;
+            let mut firmware = from_ihex(&file_str, part.firmware_size + part.bootloader_size)
+                .map_err(CLIError::from)?;
+
+            if firmware.len() < part.firmware_size {
+                log::warn!(
+                    "Firmware size is more than expected ({}). Increasing to {}",
+                    firmware.len(),
+                    part.firmware_size
+                );
+                firmware.resize(part.firmware_size, 0);
+            }
 
             match direction {
                 "to_jtag" => {
-                    let expected_payload_size = part.firmware_size + part.bootloader_size;
-                    if firmware.len() < expected_payload_size {
+                    convert_to_jtag_payload(&mut firmware, part).map_err(CLIError::from)?;
+                    if firmware.len() < part.total_flash_size() {
                         log::warn!(
-                            "Firmware size is less than expected ({}). Increasing to {}",
+                            "Firmware is smaller ({} bytes) than expected ({} bytes). This payload might not be suitable for JTAG flashing.",
                             firmware.len(),
-                            expected_payload_size
+                            part.total_flash_size()
                         );
-                        firmware.resize(expected_payload_size, 0);
                     }
-                    convert_to_jtag_payload(&mut firmware, part).map_err(CLIError::from)?
                 }
                 "to_isp" => {
-                    if firmware.len() < part.firmware_size {
+                    convert_to_isp_payload(&mut firmware, part).map_err(CLIError::from)?;
+                    if firmware.len() > part.firmware_size {
                         log::warn!(
-                            "Firmware size is more than expected ({}). Increasing to {}",
+                            "Firmware size is larger ({} bytes) than expected ({} bytes). This payload might not be suitable for ISP flashing.",
                             firmware.len(),
                             part.firmware_size
                         );
-                        firmware.resize(part.firmware_size, 0);
                     }
-                    convert_to_isp_payload(&mut firmware, part).map_err(CLIError::from)?
                 }
                 _ => unreachable!(),
             }
