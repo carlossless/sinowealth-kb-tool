@@ -180,16 +180,31 @@ fn err_main() -> Result<(), CLIError> {
             let file_str = String::from_utf8_lossy(&file_buf[..]);
             let mut firmware = from_ihex(&file_str, part.firmware_size).map_err(CLIError::from)?;
 
-            if firmware.len() < part.firmware_size {
-                firmware.resize(part.firmware_size, 0);
-            }
-
             match direction {
                 "to_jtag" => {
+                    let expected_payload_size = part.firmware_size + part.bootloader_size;
+                    if firmware.len() < expected_payload_size {
+                        log::warn!(
+                            "Firmware size is less than expected ({}). Increasing to {}",
+                            firmware.len(),
+                            expected_payload_size
+                        );
+                        firmware.resize(expected_payload_size, 0);
+                    }
                     convert_to_jtag_payload(&mut firmware, part).map_err(CLIError::from)?
                 }
-                "to_isp" => convert_to_isp_payload(&mut firmware, part).map_err(CLIError::from)?,
-                _ => panic!("Impossibe"),
+                "to_isp" => {
+                    if firmware.len() < part.firmware_size {
+                        log::warn!(
+                            "Firmware size is more than expected ({}). Increasing to {}",
+                            firmware.len(),
+                            part.firmware_size
+                        );
+                        firmware.resize(part.firmware_size, 0);
+                    }
+                    convert_to_isp_payload(&mut firmware, part).map_err(CLIError::from)?
+                }
+                _ => unreachable!(),
             }
 
             let ihex = to_ihex(firmware).map_err(CLIError::from)?;
