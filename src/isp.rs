@@ -80,12 +80,8 @@ impl ISPDevice {
 
     /// Prints out all connected HID devices and their paths.
     pub fn print_connected_devices() -> Result<(), ISPError> {
-        let api = ISPDevice::hidapi();
-
         info!("Listing all connected HID devices...");
-        let mut devices: Vec<_> = api.device_list().collect();
-
-        devices.sort_by_key(|d| d.path());
+        let devices: Vec<_> = ISPDevice::sorted_device_list();
 
         for d in &devices {
             #[cfg(not(target_os = "linux"))]
@@ -114,6 +110,13 @@ impl ISPDevice {
         Ok(())
     }
 
+    fn sorted_device_list() -> Vec<hidapi::DeviceInfo> {
+        let api = ISPDevice::hidapi();
+        let mut devices: Vec<_> = api.device_list().collect();
+        devices.sort_by_key(|d| d.path());
+        devices.into_iter().cloned().collect()
+    }
+
     fn hidapi() -> HidApi {
         let api = HidApi::new().unwrap();
 
@@ -126,8 +129,9 @@ impl ISPDevice {
     fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
-        let mut devices: Vec<_> = api
-            .device_list()
+        let sorted_devices: Vec<_> = ISPDevice::sorted_device_list();
+        let isp_devices: Vec<_> = sorted_devices
+            .into_iter()
             .filter(|d| {
                 #[cfg(not(target_os = "linux"))]
                 return d.vendor_id() == GAMING_KB_VENDOR_ID
@@ -148,9 +152,7 @@ impl ISPDevice {
             })
             .collect();
 
-        devices.sort_by_key(|d| d.path());
-
-        for d in &devices {
+        for d in &isp_devices {
             #[cfg(not(target_os = "linux"))]
             debug!(
                 "Found ISP Device: {:#06x} {:#06x} {:?} {:#06x} {:#06x}",
@@ -169,14 +171,14 @@ impl ISPDevice {
             );
         }
 
-        let device_count = devices.len();
+        let device_count = isp_devices.len();
         if device_count == 0 {
             return Err(ISPError::NotFound);
         }
 
         #[cfg(not(target_os = "windows"))]
         if device_count == 1 {
-            let request_device = devices.first().unwrap();
+            let request_device = isp_devices.first().unwrap();
             debug!("Request device: {:?}", request_device.path());
             return Ok(HIDDevices {
                 request: api.open_path(request_device.path()).unwrap(),
@@ -210,8 +212,9 @@ impl ISPDevice {
             part.vendor_id, part.product_id
         );
 
-        let request_device_info = api
-            .device_list()
+        let sorted_devices: Vec<_> = ISPDevice::sorted_device_list();
+        let request_device_info = sorted_devices
+            .into_iter()
             .filter(|d| {
                 #[cfg(not(target_os = "linux"))]
                 return d.vendor_id() == part.vendor_id
