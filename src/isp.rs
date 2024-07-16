@@ -7,7 +7,7 @@ use crate::{part::*, util, VerificationError};
 
 extern crate hidapi;
 
-use hidapi::{HidApi, HidDevice, HidError};
+use hidapi::{DeviceInfo, HidApi, HidDevice, HidError};
 
 const MAX_RETRIES: usize = 10;
 
@@ -67,6 +67,18 @@ struct HIDDevices {
     data: HidDevice,
 }
 
+pub trait HidApiExtension {
+    fn sorted_device_list(&self) -> Vec<&DeviceInfo>;
+}
+
+impl HidApiExtension for HidApi {
+    fn sorted_device_list(self: &HidApi) -> Vec<&DeviceInfo> {
+        let mut devices: Vec<_> = self.device_list().collect();
+        devices.sort_by_key(|d| d.path());
+        devices
+    }
+}
+
 impl ISPDevice {
     pub fn new(part: Part) -> Result<Self, ISPError> {
         let devices = Self::find_isp_device(part)?;
@@ -76,45 +88,6 @@ impl ISPDevice {
             data_device: devices.data,
             part,
         })
-    }
-
-    /// Prints out all connected HID devices and their paths.
-    pub fn print_connected_devices() -> Result<(), ISPError> {
-        info!("Listing all connected HID devices...");
-        let devices: Vec<_> = ISPDevice::sorted_device_list();
-
-        for d in &devices {
-            #[cfg(not(target_os = "linux"))]
-            info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" usage_page={:#06x} usage={:#06x}",
-                d.path().to_str().unwrap(),
-                d.vendor_id(),
-                d.product_id(),
-                d.manufacturer_string().unwrap_or("None"),
-                d.product_string().unwrap_or("None"),
-                d.usage_page(),
-                d.usage()
-            );
-            #[cfg(target_os = "linux")]
-            info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"",
-                d.path().to_str().unwrap(),
-                d.vendor_id(),
-                d.product_id(),
-                d.manufacturer_string().unwrap_or("None"),
-                d.product_string().unwrap_or("None")
-            );
-        }
-        info!("Found {} devices", devices.len());
-
-        Ok(())
-    }
-
-    fn sorted_device_list() -> Vec<hidapi::DeviceInfo> {
-        let api = ISPDevice::hidapi();
-        let mut devices: Vec<_> = api.device_list().collect();
-        devices.sort_by_key(|d| d.path());
-        devices.into_iter().cloned().collect()
     }
 
     fn hidapi() -> HidApi {
@@ -128,8 +101,7 @@ impl ISPDevice {
 
     fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
-
-        let sorted_devices: Vec<_> = ISPDevice::sorted_device_list();
+        let sorted_devices: Vec<_> = api.sorted_device_list();
         let isp_devices: Vec<_> = sorted_devices
             .into_iter()
             .filter(|d| {
@@ -191,8 +163,8 @@ impl ISPDevice {
         if device_count == 1 {
             return Err(ISPError::IrregularDeviceCount(device_count));
         } else if device_count == 2 {
-            let request_device = devices[0];
-            let data_device = devices[1];
+            let request_device = isp_devices[0];
+            let data_device = isp_devices[1];
             debug!("Request device: {:?}", request_device.path());
             debug!("Data device: {:?}", data_device.path());
             return Ok(HIDDevices {
@@ -212,7 +184,7 @@ impl ISPDevice {
             part.vendor_id, part.product_id
         );
 
-        let sorted_devices: Vec<_> = ISPDevice::sorted_device_list();
+        let sorted_devices: Vec<_> = api.sorted_device_list();
         let request_device_info = sorted_devices
             .into_iter()
             .filter(|d| {
@@ -301,6 +273,39 @@ impl ISPDevice {
     fn enter_isp_mode(handle: &HidDevice) -> Result<(), ISPError> {
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
         handle.send_feature_report(&cmd)?;
+        Ok(())
+    }
+
+    /// Prints out all connected HID devices and their paths.
+    pub fn print_connected_devices() -> Result<(), ISPError> {
+        info!("Listing all connected HID devices...");
+        let api = Self::hidapi();
+        let devices: Vec<_> = api.sorted_device_list();
+
+        for d in &devices {
+            #[cfg(not(target_os = "linux"))]
+            info!(
+                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" usage_page={:#06x} usage={:#06x}",
+                d.path().to_str().unwrap(),
+                d.vendor_id(),
+                d.product_id(),
+                d.manufacturer_string().unwrap_or("None"),
+                d.product_string().unwrap_or("None"),
+                d.usage_page(),
+                d.usage()
+            );
+            #[cfg(target_os = "linux")]
+            info!(
+                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"",
+                d.path().to_str().unwrap(),
+                d.vendor_id(),
+                d.product_id(),
+                d.manufacturer_string().unwrap_or("None"),
+                d.product_string().unwrap_or("None")
+            );
+        }
+        info!("Found {} devices", devices.len());
+
         Ok(())
     }
 
