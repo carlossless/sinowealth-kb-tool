@@ -19,6 +19,8 @@ pub struct Part {
     /// Index of matching (usage_page && usage) collection at which the ISP report appears in.
     pub isp_index: usize,
 
+    pub isp_report_id: u8,
+
     pub reboot: bool,
 }
 
@@ -34,6 +36,7 @@ pub const PART_BASE_DEFAULT: Part = Part {
     isp_usage_page: 0xff00,
     isp_usage: 0x0001,
     isp_index: 0,
+    isp_report_id: 0x05,
 
     reboot: true,
 };
@@ -259,6 +262,15 @@ pub const PART_REDRAGON_K633_RYZE: Part = Part {
     ..PART_BASE_SH68F90
 };
 
+pub const PART_GIBKEY_G68: Part = Part {
+    vendor_id: 0x258a,
+    product_id: 0x0049,
+    isp_iface_num: 0,
+    isp_usage: 0x0000,
+    isp_report_id: 0x02,
+    ..PART_BASE_SH68F90
+};
+
 pub static PARTS: Map<&'static str, Part> = phf_map! {
     "aula-f87" => PART_AULA_F87,
     "deltaco-wk95r" => PART_DELTACO_WK95R,
@@ -299,6 +311,7 @@ pub static PARTS: Map<&'static str, Part> = phf_map! {
     "xinmeng-xm-rf68" => PART_XINMENG_XM_RF68,
     "yunzii-al66" => PART_XINMENG_M71, // same as xinmeng-m71
     "yunzii-al71" => PART_XINMENG_M71, // same as xinmeng-m71
+    "gibkey-g68" => PART_GIBKEY_G68,
 };
 
 impl Part {

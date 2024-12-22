@@ -230,7 +230,7 @@ impl ISPDevice {
         let device = api.open_path(request_device_info.path()).unwrap();
 
         info!("Found regular device. Entering ISP mode...");
-        if let Err(err) = Self::enter_isp_mode(&device) {
+        if let Err(err) = Self::enter_isp_mode(part.isp_report_id, &device) {
             debug!("Error: {:}", err);
             return Err(err);
         }
@@ -270,8 +270,8 @@ impl ISPDevice {
         Err(ISPError::NotFound)
     }
 
-    fn enter_isp_mode(handle: &HidDevice) -> Result<(), ISPError> {
-        let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
+    fn enter_isp_mode(isp_report_id: u8, handle: &HidDevice) -> Result<(), ISPError> {
+        let cmd: [u8; COMMAND_LENGTH] = [isp_report_id, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
         handle.send_feature_report(&cmd)?;
         Ok(())
     }
