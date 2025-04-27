@@ -138,6 +138,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hidparser"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1198de2f52b8ed4a9d32d1475fbfaba95a7d07b0807efb0f364717563099194c"
+
+[[package]]
 name = "ihex"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -287,6 +293,7 @@ dependencies = [
  "clap",
  "clap-num",
  "hidapi",
+ "hidparser",
  "ihex",
  "log",
  "md5",

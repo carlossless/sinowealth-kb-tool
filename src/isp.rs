@@ -1,13 +1,14 @@
 use std::{thread, time};
 
+use hidparser::{parse_report_descriptor, report_data_types::ReportId};
 use log::{debug, info};
 use thiserror::Error;
 
-use crate::{part::*, util, VerificationError};
+use crate::{isp, part::*, util, VerificationError};
 
 extern crate hidapi;
 
-use hidapi::{DeviceInfo, HidApi, HidDevice, HidError};
+use hidapi::{DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 
 const MAX_RETRIES: usize = 10;
 
@@ -199,8 +200,19 @@ impl ISPDevice {
                     && d.product_id() == part.product_id
                     && d.interface_number() == part.isp_iface_num as i32;
             })
-            .enumerate()
-            .find_map(|(_i, d)| {
+            .filter(|d| {
+                let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+                let dev = api.open_path(d.path()).unwrap();
+                let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
+                let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
+                for item in report_descriptor.features {
+                    if item.report_id.unwrap() == ReportId::from(REPORT_ID_CMD as u32) {
+                        return true;
+                    }
+                }
+                return false;
+            })
+            .find_map(|d| {
                 #[cfg(not(target_os = "linux"))]
                 debug!(
                     "Found Device: {:?} {:#06x} {:#06x}",
@@ -210,14 +222,7 @@ impl ISPDevice {
                 );
                 #[cfg(target_os = "linux")]
                 debug!("Found Device: {:?}", d.path());
-                #[cfg(target_os = "windows")]
-                if _i == part.isp_index {
-                    return Some(d);
-                } else {
-                    return None;
-                }
-                #[cfg(not(target_os = "windows"))]
-                Some(d)
+                return Some(d);
             });
 
         let Some(request_device_info) = request_device_info else {
@@ -242,7 +247,6 @@ impl ISPDevice {
             info!("ISP device didn't come up...");
             return Err(ISPError::NotFound);
         };
-
         Ok(isp_device)
     }
 

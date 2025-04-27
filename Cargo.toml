@@ -12,6 +12,7 @@ rust-version = "1.65"
 [dependencies]
 clap = "4.1"
 clap-num = "1.0"
+hidparser = "1.0.2"
 ihex = "3.0"
 md5 = "0.7"
 thiserror = "2.0"
