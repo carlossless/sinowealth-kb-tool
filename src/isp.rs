@@ -4,7 +4,7 @@ use hidparser::{parse_report_descriptor, report_data_types::ReportId};
 use log::{debug, info};
 use thiserror::Error;
 
-use crate::{isp, part::*, util, VerificationError};
+use crate::{part::*, util, VerificationError};
 
 extern crate hidapi;
 
@@ -53,6 +53,8 @@ pub enum ISPError {
     HidError(#[from] HidError),
     #[error(transparent)]
     VerificationError(#[from] VerificationError),
+    #[error("Report descriptor error")]
+    ReportDescriptorError(hidparser::report_descriptor_parser::ReportDescriptorError),
 }
 
 #[derive(Debug, Clone)]
@@ -149,31 +151,53 @@ impl ISPDevice {
             return Err(ISPError::NotFound);
         }
 
+        let cmd_device = isp_devices.iter().find_map(|d| {
+            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+            let dev = api.open_path(d.path()).unwrap();
+            let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
+            let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
+            for item in report_descriptor.features {
+                if item.report_id.unwrap() == ReportId::from(REPORT_ID_CMD as u32) {
+                    return Some(d);
+                }
+            }
+            return None;
+        });
+
         #[cfg(not(target_os = "windows"))]
-        if device_count == 1 {
-            let request_device = isp_devices.first().unwrap();
-            debug!("Request device: {:?}", request_device.path());
+        if let Some(cmd_device) = cmd_device {
+            debug!("CMD device: {:?}", cmd_device.path());
             return Ok(HIDDevices {
-                request: api.open_path(request_device.path()).unwrap(),
+                request: api.open_path(cmd_device.path()).unwrap(),
             });
         } else {
-            return Err(ISPError::IrregularDeviceCount(device_count));
+            return Err(ISPError::NotFound);
         }
 
         #[cfg(target_os = "windows")]
-        if device_count == 1 {
-            return Err(ISPError::IrregularDeviceCount(device_count));
-        } else if device_count == 2 {
-            let request_device = isp_devices[0];
-            let data_device = isp_devices[1];
-            debug!("Request device: {:?}", request_device.path());
-            debug!("Data device: {:?}", data_device.path());
+        let xfer_device = isp_devices.iter().find_map(|d| {
+            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+            let dev = api.open_path(d.path()).unwrap();
+            let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
+            let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
+            for item in report_descriptor.features {
+                if item.report_id.unwrap() == ReportId::from(REPORT_ID_XFER as u32) {
+                    return Some(d);
+                }
+            }
+            return None;
+        });
+
+        #[cfg(target_os = "windows")]
+        if let (Some(cmd_device), Some(xfer_device)) = (cmd_device, xfer_device) {
+            debug!("Request device: {:?}", cmd_device.path());
+            debug!("Data device: {:?}", xfer_device.path());
             return Ok(HIDDevices {
-                request: api.open_path(request_device.path()).unwrap(),
-                data: api.open_path(data_device.path()).unwrap(),
+                request: api.open_path(cmd_device.path()).unwrap(),
+                data: api.open_path(xfer_device.path()).unwrap(),
             });
         } else {
-            return Err(ISPError::IrregularDeviceCount(device_count));
+            return Err(ISPError::NotFound);
         }
     }
 
@@ -307,6 +331,7 @@ impl ISPDevice {
                 d.manufacturer_string().unwrap_or("None"),
                 d.product_string().unwrap_or("None")
             );
+            // report ids not yet included since all descriptors can't be parsed until https://github.com/microsoft/mu_rust_hid/issues/46 is fixed
         }
         info!("Found {} devices", devices.len());
 
