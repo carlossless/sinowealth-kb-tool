@@ -337,6 +337,8 @@ impl ISPDevice {
             if let Ok(dev) = api.open_path(d.path()) {
                 let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
                 if let Ok(size) = dev.get_report_descriptor(&mut buf) {
+                    info!("Report descriptor size: {}", size);
+                    info!("Report descriptor: {:?}", &buf[..size]);
                     let report_descriptor = parse_report_descriptor(&buf[..size])
                         .map_err(ISPError::ReportDescriptorError)?;
                     let rids: Vec<u32> = report_descriptor.features
