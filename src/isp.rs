@@ -313,25 +313,50 @@ impl ISPDevice {
         for d in &devices {
             #[cfg(not(target_os = "linux"))]
             info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" usage_page={:#06x} usage={:#06x}",
+                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" interface_number={:#06x} usage_page={:#06x} usage={:#06x}",
                 d.path().to_str().unwrap(),
                 d.vendor_id(),
                 d.product_id(),
                 d.manufacturer_string().unwrap_or("None"),
                 d.product_string().unwrap_or("None"),
+                d.interface_number(),
                 d.usage_page(),
                 d.usage()
             );
             #[cfg(target_os = "linux")]
             info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"",
+                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" interface_number={:#06x}",
                 d.path().to_str().unwrap(),
                 d.vendor_id(),
                 d.product_id(),
                 d.manufacturer_string().unwrap_or("None"),
-                d.product_string().unwrap_or("None")
+                d.product_string().unwrap_or("None"),
+                d.interface_number()
             );
             // report ids not yet included since all descriptors can't be parsed until https://github.com/microsoft/mu_rust_hid/issues/46 is fixed
+            if let Ok(dev) = api.open_path(d.path()) {
+                let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+                if let Ok(size) = dev.get_report_descriptor(&mut buf) {
+                    let report_descriptor = parse_report_descriptor(&buf[..size])
+                        .map_err(ISPError::ReportDescriptorError)?;
+                    let rids: Vec<u32> = report_descriptor.features
+                        .iter()
+                        .filter_map(|item| item.report_id)
+                        .map(|report_id| report_id.into())
+                        .collect();
+                    let r_string: Vec<String> = rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
+                    if r_string.is_empty() {
+                        info!("No report IDs found");
+                    } else {
+                        info!("Report IDs: {}", r_string.join(", "));
+                    }
+                } else {
+                    info!("Failed to get report descriptor");
+                }
+            } else {
+                info!("Failed to open device: {:?}", d.path());
+            }
+
         }
         info!("Found {} devices", devices.len());
 
