@@ -70,6 +70,13 @@ struct HIDDevices {
     data: HidDevice,
 }
 
+pub fn to_hex_string(bytes: &[u8]) -> String {
+  let strs: Vec<String> = bytes.iter()
+                               .map(|b| format!("{:02X}", b))
+                               .collect();
+  strs.join(" ")
+}
+
 pub trait HidApiExtension {
     fn sorted_device_list(&self) -> Vec<&DeviceInfo>;
 }
@@ -338,7 +345,7 @@ impl ISPDevice {
                 let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
                 if let Ok(size) = dev.get_report_descriptor(&mut buf) {
                     info!("Report descriptor size: {}", size);
-                    info!("Report descriptor: {:?}", &buf[..size]);
+                    info!("Report descriptor: {}", to_hex_string(&buf[..size]));
                     let report_descriptor = parse_report_descriptor(&buf[..size])
                         .map_err(ISPError::ReportDescriptorError)?;
                     let rids: Vec<u32> = report_descriptor.features
