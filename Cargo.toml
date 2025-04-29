@@ -12,15 +12,15 @@ rust-version = "1.65"
 [dependencies]
 clap = "4.1"
 clap-num = "1.0"
-hidparser = "1.0.2"
+hidparser = "1.0"
 ihex = "3.0"
 md5 = "0.7"
 thiserror = "2.0"
 
 [dependencies.hidapi]
-version = "2.4"
+version = "2.6"
 default-features = false
-features = ["linux-static-libusb"]
+features = ["linux-native"]
 
 [dependencies.log]
 version = "0.4"
