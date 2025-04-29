@@ -20,7 +20,7 @@ thiserror = "2.0"
 [dependencies.hidapi]
 version = "2.6"
 default-features = false
-features = ["linux-native"]
+features = ["linux-shared-libusb"]
 
 [dependencies.log]
 version = "0.4"
