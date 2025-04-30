@@ -51,6 +51,7 @@ fn cli() -> Command {
             Command::new("list")
                 .short_flag('l')
                 .about("List all connected devices and their identifiers. This is useful to find the manufacturer and product id for your device.")
+                .arg(arg!(-r --report "include report descriptor"))
         )
         .subcommand(
             Command::new("convert")
@@ -154,8 +155,9 @@ fn err_main() -> Result<(), CLIError> {
             let isp = ISPDevice::new(part).map_err(CLIError::from)?;
             isp.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
-        Some(("list", _)) => {
-            ISPDevice::print_connected_devices().map_err(CLIError::from)?;
+        Some(("list", sub_matches)) => {
+            let report = sub_matches.get_flag("report");
+            ISPDevice::print_connected_devices(report).map_err(CLIError::from)?;
         }
         Some(("convert", sub_matches)) => {
             let input_file = sub_matches

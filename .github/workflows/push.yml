@@ -41,6 +41,8 @@ jobs:
           sudo apt-get install -qq libusb-1.0.0-dev
       - name: Run tests
         run: cargo test --verbose
+      - name: Run integration tests
+        run: cargo run -- list -r
 
   build:
     strategy:

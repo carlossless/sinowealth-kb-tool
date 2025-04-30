@@ -8,7 +8,7 @@ use crate::{part::*, util, VerificationError};
 
 extern crate hidapi;
 
-use hidapi::{DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
+use hidapi::{BusType, DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 
 use itertools::Itertools;
 
@@ -78,13 +78,15 @@ pub fn to_hex_string(bytes: &[u8]) -> String {
 }
 
 pub trait HidApiExtension {
-    fn sorted_device_list(&self) -> Vec<&DeviceInfo>;
+    fn sorted_usb_device_list(&self) -> Vec<&DeviceInfo>;
 }
 
 impl HidApiExtension for HidApi {
-    fn sorted_device_list(self: &HidApi) -> Vec<&DeviceInfo> {
-        let mut devices: Vec<_> = self.device_list().collect();
-        devices.sort_by_key(|d| d.path());
+    fn sorted_usb_device_list(self: &HidApi) -> Vec<&DeviceInfo> {
+        let mut devices: Vec<_> = self.device_list()
+            .filter(|d| d.bus_type() as u32 == BusType::Usb as u32)
+            .collect();
+        devices.sort_by_key(|d| (d.vendor_id(), d.product_id(), d.path(), d.interface_number(), d.usage_page(), d.usage()));
         devices
     }
 }
@@ -111,7 +113,7 @@ impl ISPDevice {
 
     fn open_isp_devices() -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
-        let sorted_devices: Vec<_> = api.sorted_device_list();
+        let sorted_devices: Vec<_> = api.sorted_usb_device_list();
         let isp_devices: Vec<_> = sorted_devices
             .into_iter()
             .filter(|d| {
@@ -233,7 +235,7 @@ impl ISPDevice {
             part.vendor_id, part.product_id
         );
 
-        let sorted_devices: Vec<_> = api.sorted_device_list();
+        let sorted_devices: Vec<_> = api.sorted_usb_device_list();
         let filtered_devices = sorted_devices.into_iter().filter(|d| {
             #[cfg(not(target_os = "linux"))]
             return d.vendor_id() == part.vendor_id
@@ -321,10 +323,10 @@ impl ISPDevice {
     }
 
     /// Prints out all connected HID devices and their paths.
-    pub fn print_connected_devices() -> Result<(), ISPError> {
+    pub fn print_connected_devices(with_report_descriptor: bool) -> Result<(), ISPError> {
         info!("Listing all connected HID devices...");
         let api = Self::hidapi();
-        let devices: Vec<_> = api.sorted_device_list();
+        let devices: Vec<_> = api.sorted_usb_device_list();
 
         let id_chunks = devices.iter().chunk_by(|d| {
             return (
@@ -342,17 +344,16 @@ impl ISPDevice {
             );
 
             let path_chunks = d_chunk.1.chunk_by(|d| {
-                return d.path();
+                return (d.path(), d.interface_number())
             });
 
-            for chunk in &path_chunks {
-                info!("  {:}", chunk.0.to_str().unwrap(),);
+            for ((path, interface_number), devices)  in &path_chunks {
+                info!("  path=\"{}\" interface_number={}", path.to_str().unwrap(), interface_number);
 
-                for d in chunk.1 {
+                for d in devices {
                     #[cfg(not(target_os = "linux"))]
                     info!(
-                        "    interface_number={} usage_page={:#06x} usage={:#06x}",
-                        d.interface_number(),
+                        "    usage_page={:#06x} usage={:#06x}",
                         d.usage_page(),
                         d.usage()
                     );
@@ -360,26 +361,28 @@ impl ISPDevice {
                     info!("    interface_number={:#06x}", d.interface_number());
                 }
 
-                if let Ok(dev) = api.open_path(chunk.0) {
+                if let Ok(dev) = api.open_path(path) {
                     let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
                     if let Ok(size) = dev.get_report_descriptor(&mut buf) {
-                        info!("    report_descriptor: {}", to_hex_string(&buf[..size]));
-                        let rids: Vec<u32> = ISPDevice::get_feature_report_ids(chunk.0)?;
+                        if with_report_descriptor {
+                            info!("    report_descriptor={}", to_hex_string(&buf[..size]));
+                        }
+                        let rids: Vec<u32> = ISPDevice::get_feature_report_ids(path)?;
                         let r_string: Vec<String> =
                             rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
                         if !r_string.is_empty() {
-                            info!("    feature_report_ids: {}", r_string.join(", "));
+                            info!("    feature_report_ids={}", r_string.join(", "));
                         }
                     } else {
-                        info!("    feature_report_ids: error");
+                        info!("    feature_report_ids=error");
                     }
                 } else {
-                    info!("    feature_report_ids: could not open {:?}", chunk.0);
+                    info!("    feature_report_ids=could not open {:?}", path);
                 }
             }
         }
 
-        // info!("Found {} devices", devices.len());
+        info!("Found {} devices", devices.len());
 
         Ok(())
     }
