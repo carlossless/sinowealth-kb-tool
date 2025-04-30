@@ -10,12 +10,12 @@ pub struct Part {
 
     /// USB interface number with the ISP report
     pub isp_iface_num: u8,
-    // The following properties and values are important only for windows support because its
-    // HIDAPI requires us to use a specific device for each collection
     /// HID collection `usage_page` with the ISP report
     pub isp_usage_page: u16,
     /// HID collection `usage` with the ISP report
     pub isp_usage: u16,
+    /// HID report ID
+    pub isp_report_id: u32,
 
     pub reboot: bool,
 }
@@ -31,6 +31,7 @@ pub const PART_BASE_DEFAULT: Part = Part {
     isp_iface_num: 1,
     isp_usage_page: 0xff00,
     isp_usage: 0x0001,
+    isp_report_id: 5,
 
     reboot: true,
 };

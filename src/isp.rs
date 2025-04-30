@@ -1,4 +1,4 @@
-use std::{thread, time};
+use std::{ffi::CStr, thread, time};
 
 use hidparser::{parse_report_descriptor, report_data_types::ReportId};
 use log::{debug, info};
@@ -9,6 +9,8 @@ use crate::{part::*, util, VerificationError};
 extern crate hidapi;
 
 use hidapi::{DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
+
+use itertools::Itertools;
 
 const MAX_RETRIES: usize = 10;
 
@@ -53,7 +55,7 @@ pub enum ISPError {
     HidError(#[from] HidError),
     #[error(transparent)]
     VerificationError(#[from] VerificationError),
-    #[error("Report descriptor error")]
+    #[error("Failed to parse report descriptor")]
     ReportDescriptorError(hidparser::report_descriptor_parser::ReportDescriptorError),
 }
 
@@ -71,10 +73,8 @@ struct HIDDevices {
 }
 
 pub fn to_hex_string(bytes: &[u8]) -> String {
-  let strs: Vec<String> = bytes.iter()
-                               .map(|b| format!("{:02X}", b))
-                               .collect();
-  strs.join(" ")
+    let strs: Vec<String> = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    strs.join(" ")
 }
 
 pub trait HidApiExtension {
@@ -208,6 +208,23 @@ impl ISPDevice {
         }
     }
 
+    fn get_report_ids(path: &CStr) -> Result<Vec<u32>, ISPError> {
+        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+        let dev = Self::hidapi().open_path(path).map_err(ISPError::from)?;
+        let size: usize = dev
+            .get_report_descriptor(&mut buf)
+            .map_err(ISPError::from)?;
+        let report_descriptor =
+            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
+        let res = report_descriptor
+            .features
+            .iter()
+            .filter_map(|item| item.report_id)
+            .map(|report_id| report_id.into())
+            .collect();
+        Ok(res)
+    }
+
     fn switch_kb_device(part: Part) -> Result<HIDDevices, ISPError> {
         let api = Self::hidapi();
 
@@ -217,44 +234,35 @@ impl ISPDevice {
         );
 
         let sorted_devices: Vec<_> = api.sorted_device_list();
-        let request_device_info = sorted_devices
-            .into_iter()
-            .filter(|d| {
-                #[cfg(not(target_os = "linux"))]
-                return d.vendor_id() == part.vendor_id
-                    && d.product_id() == part.product_id
-                    && d.interface_number() == part.isp_iface_num as i32
-                    && d.usage_page() == part.isp_usage_page
-                    && d.usage() == part.isp_usage;
-                #[cfg(target_os = "linux")]
-                return d.vendor_id() == part.vendor_id
-                    && d.product_id() == part.product_id
-                    && d.interface_number() == part.isp_iface_num as i32;
-            })
-            .filter(|d| {
-                let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-                let dev = api.open_path(d.path()).unwrap();
-                let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
-                let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
-                for item in report_descriptor.features {
-                    if item.report_id.unwrap() == ReportId::from(REPORT_ID_CMD as u32) {
-                        return true;
-                    }
+        let filtered_devices = sorted_devices.into_iter().filter(|d| {
+            #[cfg(not(target_os = "linux"))]
+            return d.vendor_id() == part.vendor_id
+                && d.product_id() == part.product_id
+                && d.interface_number() == part.isp_iface_num as i32
+                && d.usage_page() == part.isp_usage_page
+                && d.usage() == part.isp_usage;
+            #[cfg(target_os = "linux")]
+            return d.vendor_id() == part.vendor_id
+                && d.product_id() == part.product_id
+                && d.interface_number() == part.isp_iface_num as i32;
+        });
+
+        let mut request_device_info: Option<&DeviceInfo> = None;
+        for d in filtered_devices {
+            debug!(
+                "Found Device: {:?} {:#06x} {:#06x}",
+                d.path(),
+                d.usage_page(),
+                d.usage()
+            );
+
+            let ids = ISPDevice::get_report_ids(d.path()).unwrap();
+            for id in ids {
+                if id == part.isp_report_id {
+                    request_device_info = Some(d);
                 }
-                return false;
-            })
-            .find_map(|d| {
-                #[cfg(not(target_os = "linux"))]
-                debug!(
-                    "Found Device: {:?} {:#06x} {:#06x}",
-                    d.path(),
-                    d.usage_page(),
-                    d.usage()
-                );
-                #[cfg(target_os = "linux")]
-                debug!("Found Device: {:?}", d.path());
-                return Some(d);
-            });
+            }
+        }
 
         let Some(request_device_info) = request_device_info else {
             info!("Regular device didn't come up...");
@@ -262,8 +270,9 @@ impl ISPDevice {
         };
 
         debug!("Opening: {:?}", request_device_info.path());
-
-        let device = api.open_path(request_device_info.path()).unwrap();
+        let device = api
+            .open_path(request_device_info.path())
+            .map_err(ISPError::from)?;
 
         info!("Found regular device. Entering ISP mode...");
         if let Err(err) = Self::enter_isp_mode(&device) {
@@ -317,57 +326,60 @@ impl ISPDevice {
         let api = Self::hidapi();
         let devices: Vec<_> = api.sorted_device_list();
 
-        for d in &devices {
-            #[cfg(not(target_os = "linux"))]
-            info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" interface_number={:#06x} usage_page={:#06x} usage={:#06x}",
-                d.path().to_str().unwrap(),
+        let id_chunks = devices.iter().chunk_by(|d| {
+            return (
                 d.vendor_id(),
                 d.product_id(),
                 d.manufacturer_string().unwrap_or("None"),
                 d.product_string().unwrap_or("None"),
-                d.interface_number(),
-                d.usage_page(),
-                d.usage()
             );
-            #[cfg(target_os = "linux")]
+        });
+
+        for d_chunk in &id_chunks {
             info!(
-                "{:}: ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\" interface_number={:#06x}",
-                d.path().to_str().unwrap(),
-                d.vendor_id(),
-                d.product_id(),
-                d.manufacturer_string().unwrap_or("None"),
-                d.product_string().unwrap_or("None"),
-                d.interface_number()
+                "ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"",
+                d_chunk.0 .0, d_chunk.0 .1, d_chunk.0 .2, d_chunk.0 .3
             );
-            // report ids not yet included since all descriptors can't be parsed until https://github.com/microsoft/mu_rust_hid/issues/46 is fixed
-            if let Ok(dev) = api.open_path(d.path()) {
-                let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-                if let Ok(size) = dev.get_report_descriptor(&mut buf) {
-                    info!("Report descriptor size: {}", size);
-                    info!("Report descriptor: {}", to_hex_string(&buf[..size]));
-                    let report_descriptor = parse_report_descriptor(&buf[..size])
-                        .map_err(ISPError::ReportDescriptorError)?;
-                    let rids: Vec<u32> = report_descriptor.features
-                        .iter()
-                        .filter_map(|item| item.report_id)
-                        .map(|report_id| report_id.into())
-                        .collect();
-                    let r_string: Vec<String> = rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
-                    if r_string.is_empty() {
-                        info!("No report IDs found");
+
+            let path_chunks = d_chunk.1.chunk_by(|d| {
+                return d.path();
+            });
+
+            for chunk in &path_chunks {
+                info!("  {:}", chunk.0.to_str().unwrap(),);
+
+                for d in chunk.1 {
+                    #[cfg(not(target_os = "linux"))]
+                    info!(
+                        "    interface_number={} usage_page={:#06x} usage={:#06x}",
+                        d.interface_number(),
+                        d.usage_page(),
+                        d.usage()
+                    );
+                    #[cfg(target_os = "linux")]
+                    info!("    interface_number={:#06x}", d.interface_number());
+                }
+
+                if let Ok(dev) = api.open_path(chunk.0) {
+                    let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+                    if let Ok(size) = dev.get_report_descriptor(&mut buf) {
+                        // info!("    report_descriptor: {}", to_hex_string(&buf[..size]));
+                        let rids: Vec<u32> = ISPDevice::get_report_ids(chunk.0)?;
+                        let r_string: Vec<String> =
+                            rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
+                        if !r_string.is_empty() {
+                            info!("    feature_report_ids: {}", r_string.join(", "));
+                        }
                     } else {
-                        info!("Report IDs: {}", r_string.join(", "));
+                        info!("    feature_report_ids: error");
                     }
                 } else {
-                    info!("Failed to get report descriptor");
+                    info!("    feature_report_ids: could not open {:?}", chunk.0);
                 }
-            } else {
-                info!("Failed to open device: {:?}", d.path());
             }
-
         }
-        info!("Found {} devices", devices.len());
+
+        // info!("Found {} devices", devices.len());
 
         Ok(())
     }
