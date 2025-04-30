@@ -208,7 +208,7 @@ impl ISPDevice {
         }
     }
 
-    fn get_report_ids(path: &CStr) -> Result<Vec<u32>, ISPError> {
+    fn get_feature_report_ids(path: &CStr) -> Result<Vec<u32>, ISPError> {
         let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let dev = Self::hidapi().open_path(path).map_err(ISPError::from)?;
         let size: usize = dev
@@ -256,7 +256,7 @@ impl ISPDevice {
                 d.usage()
             );
 
-            let ids = ISPDevice::get_report_ids(d.path()).unwrap();
+            let ids = ISPDevice::get_feature_report_ids(d.path()).unwrap();
             for id in ids {
                 if id == part.isp_report_id {
                     request_device_info = Some(d);
@@ -364,7 +364,7 @@ impl ISPDevice {
                     let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
                     if let Ok(size) = dev.get_report_descriptor(&mut buf) {
                         info!("    report_descriptor: {}", to_hex_string(&buf[..size]));
-                        let rids: Vec<u32> = ISPDevice::get_report_ids(chunk.0)?;
+                        let rids: Vec<u32> = ISPDevice::get_feature_report_ids(chunk.0)?;
                         let r_string: Vec<String> =
                             rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
                         if !r_string.is_empty() {
