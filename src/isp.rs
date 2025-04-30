@@ -83,10 +83,20 @@ pub trait HidApiExtension {
 
 impl HidApiExtension for HidApi {
     fn sorted_usb_device_list(self: &HidApi) -> Vec<&DeviceInfo> {
-        let mut devices: Vec<_> = self.device_list()
+        let mut devices: Vec<_> = self
+            .device_list()
             .filter(|d| d.bus_type() as u32 == BusType::Usb as u32)
             .collect();
-        devices.sort_by_key(|d| (d.vendor_id(), d.product_id(), d.path(), d.interface_number(), d.usage_page(), d.usage()));
+        devices.sort_by_key(|d| {
+            (
+                d.vendor_id(),
+                d.product_id(),
+                d.path(),
+                d.interface_number(),
+                d.usage_page(),
+                d.usage(),
+            )
+        });
         devices
     }
 }
@@ -251,12 +261,15 @@ impl ISPDevice {
 
         let mut request_device_info: Option<&DeviceInfo> = None;
         for d in filtered_devices {
+            #[cfg(not(target_os = "linux"))]
             debug!(
                 "Found Device: {:?} {:#06x} {:#06x}",
                 d.path(),
                 d.usage_page(),
                 d.usage()
             );
+            #[cfg(target_os = "linux")]
+            debug!("Found Device: {:?}", d.path(),);
 
             let ids = ISPDevice::get_feature_report_ids(d.path()).unwrap();
             for id in ids {
@@ -337,18 +350,20 @@ impl ISPDevice {
             );
         });
 
-        for d_chunk in &id_chunks {
+        for ((vid, pid, manufacturer, product), devices) in &id_chunks {
             info!(
                 "ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"",
-                d_chunk.0 .0, d_chunk.0 .1, d_chunk.0 .2, d_chunk.0 .3
+                vid, pid, manufacturer, product
             );
 
-            let path_chunks = d_chunk.1.chunk_by(|d| {
-                return (d.path(), d.interface_number())
-            });
+            let path_chunks = devices.chunk_by(|d| (d.path(), d.interface_number()));
 
-            for ((path, interface_number), devices)  in &path_chunks {
-                info!("  path=\"{}\" interface_number={}", path.to_str().unwrap(), interface_number);
+            for ((path, interface_number), devices) in &path_chunks {
+                info!(
+                    "  path=\"{}\" interface_number={}",
+                    path.to_str().unwrap(),
+                    interface_number
+                );
 
                 for d in devices {
                     #[cfg(not(target_os = "linux"))]
