@@ -217,7 +217,7 @@ impl ISPDevice {
             return Err(ISPError::NotFound);
         }
 
-        let cmd_device = api.get_device_for_report_id(isp_devices, REPORT_ID_CMD as u32)?;
+        let cmd_device = api.get_device_for_report_id(isp_devices.clone(), REPORT_ID_CMD as u32)?;
         debug!("CMD device: {:?}", cmd_device.path());
         #[cfg(not(target_os = "windows"))]
         return Ok(HIDDevices {
@@ -226,7 +226,8 @@ impl ISPDevice {
 
         #[cfg(target_os = "windows")]
         {
-            let xfer_device = api.get_device_for_report_id(isp_devices, REPORT_ID_XFER as u32)?;
+            let xfer_device =
+                api.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
             debug!("XFER device: {:?}", xfer_device.path());
             return Ok(HIDDevices {
                 request: api.open_path(cmd_device.path()).unwrap(),
