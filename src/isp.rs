@@ -80,6 +80,7 @@ pub fn to_hex_string(bytes: &[u8]) -> String {
 pub trait HidApiExtension {
     fn sorted_usb_device_list(&self) -> Vec<&DeviceInfo>;
     fn get_feature_report_ids(&self, path: &CStr) -> Result<Vec<u32>, ISPError>;
+    fn get_feature_report_ids_d(&self, dev: HidDevice) -> Result<Vec<u32>, ISPError>;
     fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
         &self,
         devices: I,
@@ -115,13 +116,18 @@ impl HidApiExtension for HidApi {
     }
 
     fn get_feature_report_ids(self: &HidApi, path: &CStr) -> Result<Vec<u32>, ISPError> {
-        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let dev = self.open_path(path).map_err(ISPError::from)?;
+        self.get_feature_report_ids_d(dev)
+    }
+
+    fn get_feature_report_ids_d(self: &HidApi, dev: HidDevice) -> Result<Vec<u32>, ISPError> {
+        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let size: usize = dev
             .get_report_descriptor(&mut buf)
             .map_err(ISPError::from)?;
         let report_descriptor =
-            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
+            parse_report_descriptor(&buf[..size])
+            .map_err(ISPError::ReportDescriptorError)?;
         let res = report_descriptor
             .features
             .iter()
@@ -381,7 +387,7 @@ impl ISPDevice {
                         if with_report_descriptor {
                             info!("    report_descriptor={}", to_hex_string(&buf[..size]));
                         }
-                        let rids: Vec<u32> = api.get_feature_report_ids(path)?;
+                        let rids: Vec<u32> = api.get_feature_report_ids_d(dev)?;
                         let r_string: Vec<String> =
                             rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
                         if !r_string.is_empty() {
