@@ -126,8 +126,7 @@ impl HidApiExtension for HidApi {
             .get_report_descriptor(&mut buf)
             .map_err(ISPError::from)?;
         let report_descriptor =
-            parse_report_descriptor(&buf[..size])
-            .map_err(ISPError::ReportDescriptorError)?;
+            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
         let res = report_descriptor
             .features
             .iter()
