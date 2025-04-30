@@ -88,14 +88,22 @@ impl HidApiExtension for HidApi {
             .filter(|d| d.bus_type() as u32 == BusType::Usb as u32)
             .collect();
         devices.sort_by_key(|d| {
-            (
+            #[cfg(not(target_os = "linux"))]
+            return (
                 d.vendor_id(),
                 d.product_id(),
                 d.path(),
                 d.interface_number(),
                 d.usage_page(),
                 d.usage(),
-            )
+            );
+            #[cfg(target_os = "linux")]
+            return (
+                d.vendor_id(),
+                d.product_id(),
+                d.path(),
+                d.interface_number(),
+            );
         });
         devices
     }
