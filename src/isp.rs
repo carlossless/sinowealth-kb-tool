@@ -1,6 +1,6 @@
 use std::{ffi::CStr, thread, time};
 
-use hidparser::{parse_report_descriptor, report_data_types::ReportId};
+use hidparser::parse_report_descriptor;
 use log::{debug, info};
 use thiserror::Error;
 
@@ -39,9 +39,9 @@ const XFER_READ_PAGE: u8 = 0x72;
 const XFER_WRITE_PAGE: u8 = 0x77;
 
 pub struct ISPDevice {
-    request_device: HidDevice,
+    cmd_device: HidDevice,
     #[cfg(target_os = "windows")]
-    data_device: HidDevice,
+    xfer_device: HidDevice,
     part: Part,
 }
 
@@ -55,7 +55,7 @@ pub enum ISPError {
     HidError(#[from] HidError),
     #[error(transparent)]
     VerificationError(#[from] VerificationError),
-    #[error("Failed to parse report descriptor")]
+    #[error("Failed to parse report descriptor {0:?}")]
     ReportDescriptorError(hidparser::report_descriptor_parser::ReportDescriptorError),
 }
 
@@ -79,6 +79,12 @@ pub fn to_hex_string(bytes: &[u8]) -> String {
 
 pub trait HidApiExtension {
     fn sorted_usb_device_list(&self) -> Vec<&DeviceInfo>;
+    fn get_feature_report_ids(&self, path: &CStr) -> Result<Vec<u32>, ISPError>;
+    fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
+        &self,
+        devices: I,
+        report_id: u32,
+    ) -> Result<&'a DeviceInfo, ISPError>;
 }
 
 impl HidApiExtension for HidApi {
@@ -107,15 +113,48 @@ impl HidApiExtension for HidApi {
         });
         devices
     }
+
+    fn get_feature_report_ids(self: &HidApi, path: &CStr) -> Result<Vec<u32>, ISPError> {
+        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+        let dev = self.open_path(path).map_err(ISPError::from)?;
+        let size: usize = dev
+            .get_report_descriptor(&mut buf)
+            .map_err(ISPError::from)?;
+        let report_descriptor =
+            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
+        let res = report_descriptor
+            .features
+            .iter()
+            .filter_map(|item| item.report_id)
+            .map(|report_id| report_id.into())
+            .collect();
+        Ok(res)
+    }
+
+    fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
+        &self,
+        devices: I,
+        report_id: u32,
+    ) -> Result<&'a DeviceInfo, ISPError> {
+        for d in devices {
+            let ids = self.get_feature_report_ids(d.path())?;
+            for id in ids {
+                if id == report_id {
+                    return Ok(d);
+                }
+            }
+        }
+        Err(ISPError::NotFound)
+    }
 }
 
 impl ISPDevice {
     pub fn new(part: Part) -> Result<Self, ISPError> {
         let devices = Self::find_isp_device(part)?;
         Ok(Self {
-            request_device: devices.request,
+            cmd_device: devices.request,
             #[cfg(target_os = "windows")]
-            data_device: devices.data,
+            xfer_device: devices.data,
             part,
         })
     }
@@ -178,71 +217,22 @@ impl ISPDevice {
             return Err(ISPError::NotFound);
         }
 
-        let cmd_device = isp_devices.iter().find_map(|d| {
-            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-            let dev = api.open_path(d.path()).unwrap();
-            let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
-            let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
-            for item in report_descriptor.features {
-                if item.report_id.unwrap() == ReportId::from(REPORT_ID_CMD as u32) {
-                    return Some(d);
-                }
-            }
-            return None;
-        });
-
+        let cmd_device = api.get_device_for_report_id(isp_devices, REPORT_ID_CMD as u32)?;
+        debug!("CMD device: {:?}", cmd_device.path());
         #[cfg(not(target_os = "windows"))]
-        if let Some(cmd_device) = cmd_device {
-            debug!("CMD device: {:?}", cmd_device.path());
-            return Ok(HIDDevices {
-                request: api.open_path(cmd_device.path()).unwrap(),
-            });
-        } else {
-            return Err(ISPError::NotFound);
-        }
-
-        #[cfg(target_os = "windows")]
-        let xfer_device = isp_devices.iter().find_map(|d| {
-            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-            let dev = api.open_path(d.path()).unwrap();
-            let size: usize = dev.get_report_descriptor(&mut buf).unwrap();
-            let report_descriptor = parse_report_descriptor(&buf[..size]).unwrap();
-            for item in report_descriptor.features {
-                if item.report_id.unwrap() == ReportId::from(REPORT_ID_XFER as u32) {
-                    return Some(d);
-                }
-            }
-            return None;
+        return Ok(HIDDevices {
+            request: api.open_path(cmd_device.path()).unwrap(),
         });
 
         #[cfg(target_os = "windows")]
-        if let (Some(cmd_device), Some(xfer_device)) = (cmd_device, xfer_device) {
-            debug!("Request device: {:?}", cmd_device.path());
-            debug!("Data device: {:?}", xfer_device.path());
+        {
+            let xfer_device = api.get_device_for_report_id(isp_devices, REPORT_ID_XFER as u32)?;
+            debug!("XFER device: {:?}", xfer_device.path());
             return Ok(HIDDevices {
                 request: api.open_path(cmd_device.path()).unwrap(),
                 data: api.open_path(xfer_device.path()).unwrap(),
             });
-        } else {
-            return Err(ISPError::NotFound);
         }
-    }
-
-    fn get_feature_report_ids(path: &CStr) -> Result<Vec<u32>, ISPError> {
-        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-        let dev = Self::hidapi().open_path(path).map_err(ISPError::from)?;
-        let size: usize = dev
-            .get_report_descriptor(&mut buf)
-            .map_err(ISPError::from)?;
-        let report_descriptor =
-            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
-        let res = report_descriptor
-            .features
-            .iter()
-            .filter_map(|item| item.report_id)
-            .map(|report_id| report_id.into())
-            .collect();
-        Ok(res)
     }
 
     fn switch_kb_device(part: Part) -> Result<HIDDevices, ISPError> {
@@ -267,7 +257,7 @@ impl ISPDevice {
                 && d.interface_number() == part.isp_iface_num as i32;
         });
 
-        let mut request_device_info: Option<&DeviceInfo> = None;
+        let mut cmd_device_info: Option<&DeviceInfo> = None;
         for d in filtered_devices {
             #[cfg(not(target_os = "linux"))]
             debug!(
@@ -279,22 +269,22 @@ impl ISPDevice {
             #[cfg(target_os = "linux")]
             debug!("Found Device: {:?}", d.path(),);
 
-            let ids = ISPDevice::get_feature_report_ids(d.path()).unwrap();
+            let ids = api.get_feature_report_ids(d.path()).unwrap();
             for id in ids {
                 if id == part.isp_report_id {
-                    request_device_info = Some(d);
+                    cmd_device_info = Some(d);
                 }
             }
         }
 
-        let Some(request_device_info) = request_device_info else {
+        let Some(cmd_device_info) = cmd_device_info else {
             info!("Regular device didn't come up...");
             return Err(ISPError::NotFound);
         };
 
-        debug!("Opening: {:?}", request_device_info.path());
+        debug!("Opening: {:?}", cmd_device_info.path());
         let device = api
-            .open_path(request_device_info.path())
+            .open_path(cmd_device_info.path())
             .map_err(ISPError::from)?;
 
         info!("Found regular device. Entering ISP mode...");
@@ -390,7 +380,7 @@ impl ISPDevice {
                         if with_report_descriptor {
                             info!("    report_descriptor={}", to_hex_string(&buf[..size]));
                         }
-                        let rids: Vec<u32> = ISPDevice::get_feature_report_ids(path)?;
+                        let rids: Vec<u32> = api.get_feature_report_ids(path)?;
                         let r_string: Vec<String> =
                             rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
                         if !r_string.is_empty() {
@@ -452,11 +442,11 @@ impl ISPDevice {
         Ok(())
     }
 
-    fn data_device(&self) -> &HidDevice {
+    fn xfer_device(&self) -> &HidDevice {
         #[cfg(target_os = "windows")]
-        return &self.data_device;
+        return &self.xfer_device;
         #[cfg(not(target_os = "windows"))]
-        &self.request_device
+        &self.cmd_device
     }
 
     fn read(&self, start_addr: usize, length: usize) -> Result<Vec<u8>, ISPError> {
@@ -499,7 +489,7 @@ impl ISPDevice {
             0,
             0,
         ];
-        self.request_device
+        self.cmd_device
             .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         Ok(())
@@ -515,7 +505,7 @@ impl ISPDevice {
             0,
             0,
         ];
-        self.request_device
+        self.cmd_device
             .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         Ok(())
@@ -527,7 +517,7 @@ impl ISPDevice {
         let mut xfer_buf: Vec<u8> = vec![0; page_size + 2];
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_READ_PAGE;
-        self.data_device()
+        self.xfer_device()
             .get_feature_report(&mut xfer_buf)
             .map_err(ISPError::from)?;
         buf.extend_from_slice(&xfer_buf[2..(page_size + 2)]);
@@ -546,7 +536,7 @@ impl ISPDevice {
         xfer_buf[0] = REPORT_ID_XFER;
         xfer_buf[1] = XFER_WRITE_PAGE;
         xfer_buf[2..length].clone_from_slice(buf);
-        self.data_device()
+        self.xfer_device()
             .send_feature_report(&xfer_buf)
             .map_err(ISPError::from)?;
         Ok(())
@@ -561,7 +551,7 @@ impl ISPDevice {
         info!("Enabling firmware...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ENABLE_FIRMWARE, 0, 0, 0, 0];
 
-        self.request_device.send_feature_report(&cmd)?;
+        self.cmd_device.send_feature_report(&cmd)?;
         Ok(())
     }
 
@@ -570,7 +560,7 @@ impl ISPDevice {
     fn erase(&self) -> Result<(), ISPError> {
         info!("Erasing...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_ERASE, 0, 0, 0, 0];
-        self.request_device
+        self.cmd_device
             .send_feature_report(&cmd)
             .map_err(ISPError::from)?;
         thread::sleep(time::Duration::from_millis(2000));
@@ -581,7 +571,7 @@ impl ISPDevice {
     fn reboot(&self) -> Result<(), ISPError> {
         info!("Rebooting...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_REBOOT, 0, 0, 0, 0];
-        if let Err(err) = self.request_device.send_feature_report(&cmd) {
+        if let Err(err) = self.cmd_device.send_feature_report(&cmd) {
             // only log failures
             debug!("Error: {:}", err);
         }
