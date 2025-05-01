@@ -1,6 +1,6 @@
 use std::{thread, time};
 
-use log::{debug, info};
+use log::{debug, error, info};
 use thiserror::Error;
 
 use crate::{part::*, util, VerificationError};
@@ -241,8 +241,19 @@ impl ISPDevice {
         info!("Rebooting...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_REBOOT, 0, 0, 0, 0];
         if let Err(err) = self.cmd_device.send_feature_report(&cmd) {
-            // only log failures
             debug!("Error: {:}", err);
+            match err {
+                // janky way of silencing expected errors due to device not acting as proper usb device when rebooting
+                #[cfg(target_os = "macos")]
+                HidError::HidApiError { ref message } if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => { },
+                #[cfg(target_os = "linux")]
+                HidError::HidApiError { ref message } if message == "hid_error is not implemented yet" => { },
+                #[cfg(target_os = "windows")]
+                HidError::HidApiError { ref message } if message == "HidD_SetFeature: (0x0000001F) A device attached to the system is not functioning." => { },
+                _ => {
+                    error!("Unexpected: {:}", err);
+                }
+            };
         }
         thread::sleep(time::Duration::from_millis(2000));
         Ok(())

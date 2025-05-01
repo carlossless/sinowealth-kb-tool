@@ -4,7 +4,7 @@ use std::{ffi::CStr, thread};
 use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
 use itertools::Itertools;
-use log::{debug, info};
+use log::{debug, error, info};
 
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
@@ -232,7 +232,9 @@ impl DeviceSelector {
 
         info!("Found regular device. Entering ISP mode...");
         if let Err(err) = self.enter_isp_mode(&device) {
+            debug!("Error: {:}", err);
             match err {
+                // janky way of silencing expected errors due to device not acting as proper usb device when switching
                 #[cfg(target_os = "macos")]
                 ISPError::HidError(HidError::HidApiError { ref message }) if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => { true }
                 #[cfg(target_os = "linux")]
@@ -241,7 +243,7 @@ impl DeviceSelector {
                 ISPError::HidError(HidError::HidApiError { ref message }) if message == "HidD_SetFeature: (0x0000001F) A device attached to the system is not functioning." => { true }
                 err => {
                     // this often fails so we ignore the error
-                    debug!("Error: {:}", err);
+                    error!("Unexpected: {:}", err);
                     info!("Waiting...");
                     thread::sleep(time::Duration::from_secs(2));
                     return Err(err);
