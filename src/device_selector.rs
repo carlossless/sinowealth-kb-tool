@@ -230,15 +230,18 @@ impl DeviceSelector {
         if let Err(err) = self.enter_isp_mode(&device) {
             match err {
                 ISPError::HidError(HidError::HidApiError { ref message }) => {
-                    if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" {
-                        // TODO: macos specific
-                        true
-                    } else {
-                        // this often fails so we ignore the error
-                        debug!("Error: {}", err);
-                        info!("Waiting...");
-                        thread::sleep(time::Duration::from_secs(2));
-                        return Err(err);
+                    match message.as_str() {
+                        #[cfg(target_os = "macos")]
+                        "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => true,
+                        #[cfg(target_os = "linux")]
+                        "hid_error is not implemented yet" => true,
+                        _ => {
+                            // this often fails so we ignore the error
+                            debug!("Error: {}", err);
+                            info!("Waiting...");
+                            thread::sleep(time::Duration::from_secs(2));
+                            return Err(err);
+                        }
                     }
                 }
                 err => {
