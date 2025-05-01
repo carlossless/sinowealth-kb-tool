@@ -9,6 +9,8 @@ use log::{debug, info};
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
 
+const REPORT_ID_XFER: u8 = 0x06;
+
 const GAMING_KB_VENDOR_ID: u16 = 0x0603;
 const GAMING_KB_PRODUCT_ID: u16 = 0x1020;
 const GAMING_KB_V2_PRODUCT_ID: u16 = 0x1021;
@@ -164,12 +166,12 @@ impl DeviceSelector {
         #[cfg(target_os = "windows")]
         {
             let xfer_device =
-                api.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
+                self.api.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
             debug!("XFER device: {:?}", xfer_device.path());
             return Ok(ISPDevice::new(
                 part,
-                api.open_path(cmd_device.path()).unwrap(),
-                api.open_path(xfer_device.path()).unwrap(),
+                self.api.open_path(cmd_device.path()).unwrap(),
+                self.api.open_path(xfer_device.path()).unwrap(),
             ));
         }
     }
