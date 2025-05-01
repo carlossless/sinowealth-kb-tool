@@ -9,6 +9,7 @@ use log::{debug, info};
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
 
+#[cfg(target_os = "windows")]
 const REPORT_ID_XFER: u8 = 0x06;
 
 const GAMING_KB_VENDOR_ID: u16 = 0x0603;
@@ -232,21 +233,12 @@ impl DeviceSelector {
         info!("Found regular device. Entering ISP mode...");
         if let Err(err) = self.enter_isp_mode(&device) {
             match err {
-                ISPError::HidError(HidError::HidApiError { ref message }) => {
-                    match message.as_str() {
-                        #[cfg(target_os = "macos")]
-                        "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => true,
-                        #[cfg(target_os = "linux")]
-                        "hid_error is not implemented yet" => true,
-                        _ => {
-                            // this often fails so we ignore the error
-                            debug!("Error: {}", err);
-                            info!("Waiting...");
-                            thread::sleep(time::Duration::from_secs(2));
-                            return Err(err);
-                        }
-                    }
-                }
+                #[cfg(target_os = "macos")]
+                ISPError::HidError(HidError::HidApiError { ref message }) if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => { true }
+                #[cfg(target_os = "linux")]
+                ISPError::HidError(HidError::HidApiError { ref message }) if message == "hid_error is not implemented yet" => { true }
+                #[cfg(target_os = "windows")]
+                ISPError::HidError(HidError::HidApiError { ref message }) if message == "HidD_SetFeature: (0x0000001F) A device attached to the system is not functioning." => { true }
                 err => {
                     // this often fails so we ignore the error
                     debug!("Error: {:}", err);
