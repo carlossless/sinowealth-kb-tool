@@ -166,10 +166,11 @@ impl DeviceSelector {
             let xfer_device =
                 api.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
             debug!("XFER device: {:?}", xfer_device.path());
-            return Ok(ISPDevice {
-                request: api.open_path(cmd_device.path()).unwrap(),
-                data: api.open_path(xfer_device.path()).unwrap(),
-            });
+            return Ok(ISPDevice::new(
+                part,
+                api.open_path(cmd_device.path()).unwrap(),
+                api.open_path(xfer_device.path()).unwrap(),
+            ));
         }
     }
 
