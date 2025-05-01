@@ -1,5 +1,8 @@
 use core::time;
-use std::{ffi::{CStr, CString}, thread};
+use std::{
+    ffi::{CStr, CString},
+    thread,
+};
 
 use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
@@ -53,7 +56,9 @@ impl DeviceSelector {
     }
 
     fn sorted_usb_device_list(&self) -> Vec<&DeviceInfo> {
-        let mut devices: Vec<_> = self.api.device_list()
+        let mut devices: Vec<_> = self
+            .api
+            .device_list()
             .filter(|d| d.bus_type() as u32 == BusType::Usb as u32)
             .collect();
         devices.sort_by_key(|d| {
@@ -67,14 +72,9 @@ impl DeviceSelector {
                 d.usage(),
             );
             #[cfg(target_os = "linux")]
-            return (
-                d.vendor_id,
-                d.product_id,
-                d.path,
-                d.interface_number,
-            );
+            return (d.vendor_id, d.product_id, d.path, d.interface_number);
         });
-        return devices
+        return devices;
     }
 
     fn get_feature_report_ids_from_path(&self, path: &CStr) -> Result<Vec<u32>, ISPError> {
@@ -116,7 +116,8 @@ impl DeviceSelector {
 
     fn open_isp_devices(&self, part: Part) -> Result<ISPDevice, ISPError> {
         let sorted_devices = self.sorted_usb_device_list();
-        let isp_devices: Vec<_> = sorted_devices.clone()
+        let isp_devices: Vec<_> = sorted_devices
+            .clone()
             .into_iter()
             .filter(|d| {
                 #[cfg(not(target_os = "linux"))]
@@ -164,8 +165,7 @@ impl DeviceSelector {
         }
 
         let s = isp_devices.clone();
-        let cmd_device =
-            self.get_device_for_report_id(s, REPORT_ID_ISP as u32)?;
+        let cmd_device = self.get_device_for_report_id(s, REPORT_ID_ISP as u32)?;
         debug!("CMD device: {:?}", cmd_device.path());
         #[cfg(not(target_os = "windows"))]
         return Ok(ISPDevice::new(
@@ -217,7 +217,8 @@ impl DeviceSelector {
             #[cfg(target_os = "linux")]
             debug!("Found Device: {:?} {}", d.path(), d.interface_number());
 
-            let ids = self.get_feature_report_ids_from_path(d.path())
+            let ids = self
+                .get_feature_report_ids_from_path(d.path())
                 .map_err(|_| ISPError::NotFound)?;
             for id in ids {
                 if id == part.isp_report_id {
@@ -241,7 +242,8 @@ impl DeviceSelector {
         if let Err(err) = self.enter_isp_mode(&device) {
             match err {
                 ISPError::HidError(HidError::HidApiError { ref message }) => {
-                    if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" { // TODO: macos specific
+                    if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" {
+                        // TODO: macos specific
                         true
                     } else {
                         // this often fails so we ignore the error
