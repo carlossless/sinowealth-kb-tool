@@ -262,6 +262,7 @@ impl PartCommand for Command {
         .arg(arg!(--isp_iface_num <NUM>).value_parser(maybe_hex::<u8>))
         .arg(arg!(--isp_usage_page <PAGE>).value_parser(maybe_hex::<u16>))
         .arg(arg!(--isp_usage <USAGE>).value_parser(maybe_hex::<u16>))
+        .arg(arg!(--isp_report_id <USAGE>).value_parser(maybe_hex::<u32>))
         .arg(arg!(--reboot <BOOL>).value_parser(value_parser!(bool)))
     }
 }
@@ -282,6 +283,7 @@ fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
     let isp_iface_num = sub_matches.get_one::<u8>("isp_iface_num");
     let isp_usage_page = sub_matches.get_one::<u16>("isp_usage_page");
     let isp_usage = sub_matches.get_one::<u16>("isp_usage");
+    let isp_report_id = sub_matches.get_one::<u32>("isp_report_id");
     let reboot = sub_matches.get_one::<bool>("reboot");
 
     if let Some(firmware_size) = firmware_size {
@@ -307,6 +309,9 @@ fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
     }
     if let Some(isp_usage) = isp_usage {
         part.isp_usage = *isp_usage;
+    }
+    if let Some(isp_report_id) = isp_report_id {
+        part.isp_report_id = *isp_report_id;
     }
     if let Some(reboot) = reboot {
         part.reboot = *reboot;
