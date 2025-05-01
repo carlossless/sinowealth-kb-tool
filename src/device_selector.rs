@@ -1,8 +1,5 @@
 use core::time;
-use std::{
-    ffi::{CStr},
-    thread,
-};
+use std::{ffi::CStr, thread};
 
 use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
@@ -58,7 +55,12 @@ impl DeviceSelector {
                 d.usage(),
             );
             #[cfg(target_os = "linux")]
-            return (d.vendor_id, d.product_id, d.path, d.interface_number);
+            return (
+                d.vendor_id(),
+                d.product_id(),
+                d.path(),
+                d.interface_number(),
+            );
         });
         devices
     }
