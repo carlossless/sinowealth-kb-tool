@@ -165,9 +165,8 @@ impl DeviceSelector {
 
         #[cfg(target_os = "windows")]
         {
-            let xfer_device = self
-                .api
-                .get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
+            let xfer_device =
+                self.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
             debug!("XFER device: {:?}", xfer_device.path());
             return Ok(ISPDevice::new(
                 part,
