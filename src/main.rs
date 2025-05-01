@@ -6,17 +6,18 @@ use std::{
 
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_num::maybe_hex;
+use device_selector::DeviceSelector;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use thiserror::Error;
 
-mod isp;
-mod part;
-// mod hid;
+mod device_selector;
 mod ihex;
+mod isp_device;
+mod part;
 mod util;
 
-pub use crate::{ihex::*, isp::*, part::*, util::*};
+pub use crate::{ihex::*, isp_device::*, part::*, util::*};
 
 #[derive(Debug, Error)]
 pub enum CLIError {
@@ -28,6 +29,8 @@ pub enum CLIError {
     IHEXError(#[from] ConversionError),
     #[error(transparent)]
     PayloadConversionError(#[from] PayloadConversionError),
+    #[error("Invalid argument: {0}")]
+    DeviceSelectorError(String),
 }
 
 fn main() -> ExitCode {
@@ -125,8 +128,9 @@ fn err_main() -> Result<(), CLIError> {
                 _ => ReadType::Normal,
             };
 
-            let isp = ISPDevice::new(part).map_err(CLIError::from)?;
-            let result = isp.read_cycle(read_type).map_err(CLIError::from)?;
+            let mut ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
+            let device = ds.find_isp_device(part).map_err(CLIError::from)?;
+            let result = device.read_cycle(read_type).map_err(CLIError::from)?;
 
             let digest = md5::compute(&result);
             info!("MD5: {:x}", digest);
@@ -152,12 +156,14 @@ fn err_main() -> Result<(), CLIError> {
                 firmware.resize(part.firmware_size, 0);
             }
 
-            let isp = ISPDevice::new(part).map_err(CLIError::from)?;
-            isp.write_cycle(&mut firmware).map_err(CLIError::from)?;
+            let mut ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
+            let device = ds.find_isp_device(part).map_err(CLIError::from)?;
+            device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
         Some(("list", sub_matches)) => {
             let report = sub_matches.get_flag("report");
-            ISPDevice::print_connected_devices(report).map_err(CLIError::from)?;
+            let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
+            ds.print_connected_devices(report).map_err(CLIError::from)?;
         }
         Some(("convert", sub_matches)) => {
             let input_file = sub_matches

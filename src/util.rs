@@ -93,6 +93,11 @@ pub fn convert_to_isp_payload(input: &mut [u8], part: Part) -> Result<(), Payloa
     Ok(())
 }
 
+pub fn to_hex_string(bytes: &[u8]) -> String {
+    let strs: Vec<String> = bytes.iter().map(|b| format!("{:02X}", b)).collect();
+    strs.join(" ")
+}
+
 #[test]
 fn test_verify_success() {
     assert!(verify(&vec![1, 2, 3, 4], &vec![1, 2, 3, 4]).is_ok());
