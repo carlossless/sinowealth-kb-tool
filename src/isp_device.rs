@@ -14,7 +14,6 @@ const COMMAND_LENGTH: usize = 6;
 const REPORT_ID_CMD: u8 = 0x05;
 const REPORT_ID_XFER: u8 = 0x06;
 
-const CMD_ISP_MODE: u8 = 0x75;
 const CMD_ENABLE_FIRMWARE: u8 = 0x55;
 const CMD_INIT_READ: u8 = 0x52;
 const CMD_INIT_WRITE: u8 = 0x57;

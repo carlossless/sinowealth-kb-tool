@@ -1,6 +1,6 @@
 use core::time;
 use std::{
-    ffi::{CStr, CString},
+    ffi::{CStr},
     thread,
 };
 
@@ -8,7 +8,6 @@ use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZ
 use hidparser::parse_report_descriptor;
 use itertools::Itertools;
 use log::{debug, info};
-use phf::map;
 
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
@@ -27,19 +26,6 @@ const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 const HID_ISP_USAGE: u16 = 0x0001;
 
 use crate::{to_hex_string, ISPDevice, ISPError, Part}; // TODO: Create own error here
-
-struct HIDDeviceInfo {
-    vendor_id: u16,
-    product_id: u16,
-    path: String,
-    interface_number: i32,
-    usage_page: u16,
-    usage: u16,
-
-    manufacturer_string: String,
-    product_string: String,
-    serial_number: String,
-}
 
 pub struct DeviceSelector {
     api: hidapi::HidApi,
@@ -74,7 +60,7 @@ impl DeviceSelector {
             #[cfg(target_os = "linux")]
             return (d.vendor_id, d.product_id, d.path, d.interface_number);
         });
-        return devices;
+        devices
     }
 
     fn get_feature_report_ids_from_path(&self, path: &CStr) -> Result<Vec<u32>, ISPError> {
