@@ -32,16 +32,10 @@ pub struct ISPDevice {
 
 #[derive(Debug, Error)]
 pub enum ISPError {
-    #[error("Unusual number of matching HID devices: {0}")]
-    IrregularDeviceCount(usize),
-    #[error("Device not found")]
-    NotFound,
     #[error(transparent)]
     HidError(#[from] HidError),
     #[error(transparent)]
     VerificationError(#[from] VerificationError),
-    #[error("Failed to parse report descriptor {0:?}")]
-    ReportDescriptorError(hidparser::report_descriptor_parser::ReportDescriptorError),
 }
 
 #[derive(Debug, Clone)]
@@ -75,7 +69,7 @@ impl ISPDevice {
         let (start_addr, length) = match read_fragment {
             ReadFragment::Firmware => (0, self.part.firmware_size),
             ReadFragment::Bootloader => (self.part.firmware_size, self.part.bootloader_size),
-            ReadFragment::Full => (0, self.part.firmware_size + self.part.bootloader_size)
+            ReadFragment::Full => (0, self.part.firmware_size + self.part.bootloader_size),
         };
 
         let firmware = self.read(start_addr, length)?;

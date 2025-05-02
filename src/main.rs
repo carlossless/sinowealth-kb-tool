@@ -6,7 +6,7 @@ use std::{
 
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_num::maybe_hex;
-use device_selector::DeviceSelector;
+use device_selector::{DeviceSelector, DeviceSelectorError};
 use hid_tree::TreeDisplay;
 use log::{error, info};
 use simple_logger::SimpleLogger;
@@ -31,8 +31,8 @@ pub enum CLIError {
     IHEXError(#[from] ConversionError),
     #[error(transparent)]
     PayloadConversionError(#[from] PayloadConversionError),
-    #[error("Invalid argument: {0}")]
-    DeviceSelectorError(String),
+    #[error(transparent)]
+    DeviceSelectorError(#[from] DeviceSelectorError),
 }
 
 fn main() -> ExitCode {

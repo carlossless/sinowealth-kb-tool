@@ -1,4 +1,4 @@
-use crate::{to_hex_string, ISPError};
+use crate::{device_selector::DeviceSelectorError, to_hex_string};
 
 pub struct DeviceNode {
     pub product_id: u16,
@@ -13,9 +13,9 @@ pub struct InterfaceNode {
     #[cfg(any(target_os = "macos", target_os = "linux"))]
     pub path: String,
     #[cfg(any(target_os = "macos", target_os = "linux"))]
-    pub descriptor: Result<Vec<u8>, ISPError>,
+    pub descriptor: Result<Vec<u8>, DeviceSelectorError>,
     #[cfg(any(target_os = "macos", target_os = "linux"))]
-    pub feature_report_ids: Result<Vec<u32>, ISPError>,
+    pub feature_report_ids: Result<Vec<u32>, DeviceSelectorError>,
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub children: Vec<ItemNode>,
 }
@@ -41,40 +41,41 @@ pub trait TreeDisplay {
 
 impl TreeDisplay for Vec<DeviceNode> {
     fn to_tree_string(&self, _level: usize) -> String {
-        let mut s = String::new();
+        let mut s: Vec<String> = vec![];
         for device in self {
-            s.push_str(&format!("{}\n", device.to_tree_string(0)));
+            s.push(format!("{}", device.to_tree_string(0)));
         }
-        s
+        s.join("\n\n")
     }
 }
 
 impl TreeDisplay for DeviceNode {
     fn to_tree_string(&self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
-        let mut s = format!(
-            "{indent}ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"\n",
+        let mut s: Vec<String> = vec![];
+        s.push(format!(
+            "{indent}ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"",
             self.vendor_id, self.product_id, self.manufacturer_string, self.product_string
-        );
+        ));
         for child in &self.children {
-            s.push_str(&child.to_tree_string(level + 1));
+            s.push(child.to_tree_string(level + 1));
         }
-        s
+        s.join("\n")
     }
 }
 
 impl TreeDisplay for InterfaceNode {
     fn to_tree_string(&self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
-        let mut s = String::new();
+        let mut s: Vec<String> = vec![];
         #[cfg(any(target_os = "macos", target_os = "linux"))]
-        s.push_str(&format!(
-            "{indent}path=\"{}\" interface_number={}\n",
+        s.push(format!(
+            "{indent}path=\"{}\" interface_number={}",
             self.path, self.interface_number
         ));
         #[cfg(target_os = "windows")]
-        s.push_str(&format!(
-            "{indent}interface_number={}\n",
+        s.push(format!(
+            "{indent}interface_number={}",
             self.interface_number
         ));
         #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -82,20 +83,20 @@ impl TreeDisplay for InterfaceNode {
             let descriptor = self.descriptor.as_ref();
             match descriptor {
                 Ok(descriptor) => {
-                    s.push_str(&format!(
-                        "{indent}report_descriptor=[{}]\n",
+                    s.push(format!(
+                        "{indent}report_descriptor=[{}]",
                         to_hex_string(&descriptor)
                     ));
                 }
                 Err(e) => {
-                    s.push_str(&format!("{indent}report_descriptor=error: {}\n", e));
+                    s.push(format!("{indent}report_descriptor=error: {}", e));
                 }
             }
             let feature_report_ids = self.feature_report_ids.as_ref();
             match feature_report_ids {
                 Ok(feature_report_ids) => {
-                    s.push_str(&format!(
-                        "{indent}feature_report_ids=[{}]\n",
+                    s.push(format!(
+                        "{indent}feature_report_ids=[{}]",
                         feature_report_ids
                             .iter()
                             .map(|rid| format!("{:#04x}", rid))
@@ -104,52 +105,52 @@ impl TreeDisplay for InterfaceNode {
                     ));
                 }
                 Err(e) => {
-                    s.push_str(&format!("{indent}feature_report_ids=error: {}\n", e));
+                    s.push(format!("{indent}feature_report_ids=error: {}", e));
                 }
             }
         }
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
             for child in &self.children {
-                s.push_str(&child.to_tree_string(level + 1));
+                s.push(child.to_tree_string(level + 1));
             }
         }
-        return s;
+        return s.join("\n");
     }
 }
 
 impl TreeDisplay for ItemNode {
     fn to_tree_string(&self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
-        let mut s = String::new();
+        let mut s: Vec<String> = vec![];
         #[cfg(any(target_os = "macos"))]
-        s.push_str(&format!(
-            "{indent}usage_page={:#06x} usage={:#06x}\n",
+        s.push(format!(
+            "{indent}usage_page={:#06x} usage={:#06x}",
             self.usage_page, self.usage
         ));
         #[cfg(any(target_os = "windows"))]
         {
-            s.push_str(&format!(
-                "{indent}path=\"{}\" usage_page={:#06x} usage={:#06x}\n",
+            s.push(format!(
+                "{indent}path=\"{}\" usage_page={:#06x} usage={:#06x}",
                 self.path, self.usage_page, self.usage
             ));
             let descriptor = self.descriptor.as_ref();
             match descriptor {
                 Ok(descriptor) => {
-                    s.push_str(&format!(
-                        "{indent}report_descriptor=[{}]\n",
+                    s.push(format!(
+                        "{indent}report_descriptor=[{}]",
                         to_hex_string(&descriptor)
                     ));
                 }
                 Err(e) => {
-                    s.push_str(&format!("{indent}report_descriptor=error: {}\n", e));
+                    s.push(format!("{indent}report_descriptor=error: {}", e));
                 }
             }
             let feature_report_ids = self.feature_report_ids.as_ref();
             match feature_report_ids {
                 Ok(feature_report_ids) => {
-                    s.push_str(&format!(
-                        "{indent}feature_report_ids=[{}]\n",
+                    s.push(format!(
+                        "{indent}feature_report_ids=[{}]",
                         feature_report_ids
                             .iter()
                             .map(|rid| format!("{:#04x}", rid))
@@ -158,10 +159,10 @@ impl TreeDisplay for ItemNode {
                     ));
                 }
                 Err(e) => {
-                    s.push_str(&format!("{indent}feature_report_ids=error: {}\n", e));
+                    s.push(format!("{indent}feature_report_ids=error: {}", e));
                 }
             }
         }
-        s
+        s.join("\n")
     }
 }

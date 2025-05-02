@@ -1,10 +1,16 @@
 use core::time;
 use std::{ffi::CStr, thread};
 
-use hidapi::{BusType, DeviceInfo, HidDevice, MAX_REPORT_DESCRIPTOR_SIZE};
+use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
 use itertools::Itertools;
 use log::{debug, error, info};
+use thiserror::Error;
+
+use crate::{
+    hid_tree::{DeviceNode, InterfaceNode, ItemNode},
+    is_expected_error, ISPDevice, Part,
+};
 
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
@@ -23,17 +29,23 @@ const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 #[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE: u16 = 0x0001;
 
-use crate::{
-    hid_tree::{DeviceNode, InterfaceNode, ItemNode}, is_expected_error, ISPDevice, ISPError, Part
-}; // TODO: Create own error here
+#[derive(Debug, Error)]
+pub enum DeviceSelectorError {
+    #[error("Device not found")]
+    NotFound,
+    #[error(transparent)]
+    HidError(#[from] HidError),
+    #[error("Failed to parse report descriptor {0:?}")]
+    ReportDescriptorError(hidparser::report_descriptor_parser::ReportDescriptorError),
+}
 
 pub struct DeviceSelector {
     api: hidapi::HidApi,
 }
 
 impl DeviceSelector {
-    pub fn new() -> Result<Self, String> {
-        let api = hidapi::HidApi::new().map_err(|e| e.to_string())?;
+    pub fn new() -> Result<Self, DeviceSelectorError> {
+        let api = hidapi::HidApi::new().map_err(DeviceSelectorError::from)?;
 
         #[cfg(target_os = "macos")]
         api.set_open_exclusive(false); // macOS will throw a privilege violation error otherwise
@@ -68,16 +80,25 @@ impl DeviceSelector {
         devices
     }
 
-    fn get_feature_report_ids_from_path(&self, path: &CStr) -> Result<Vec<u32>, ISPError> {
-        let dev = self.api.open_path(path).map_err(ISPError::from)?;
+    fn get_feature_report_ids_from_path(
+        &self,
+        path: &CStr,
+    ) -> Result<Vec<u32>, DeviceSelectorError> {
+        let dev = self
+            .api
+            .open_path(path)
+            .map_err(DeviceSelectorError::from)?;
         self.get_feature_report_ids_from_device(&dev)
     }
 
-    fn get_feature_report_ids_from_device(&self, dev: &HidDevice) -> Result<Vec<u32>, ISPError> {
+    fn get_feature_report_ids_from_device(
+        &self,
+        dev: &HidDevice,
+    ) -> Result<Vec<u32>, DeviceSelectorError> {
         let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let size: usize = dev
             .get_report_descriptor(&mut buf)
-            .map_err(ISPError::from)?;
+            .map_err(DeviceSelectorError::from)?;
         let descriptor = buf[..size].to_vec();
         self.get_feature_report_ids_from_descriptor(&descriptor)
     }
@@ -85,9 +106,9 @@ impl DeviceSelector {
     fn get_feature_report_ids_from_descriptor(
         &self,
         descriptor: &Vec<u8>,
-    ) -> Result<Vec<u32>, ISPError> {
-        let report_descriptor =
-            parse_report_descriptor(&descriptor).map_err(ISPError::ReportDescriptorError)?;
+    ) -> Result<Vec<u32>, DeviceSelectorError> {
+        let report_descriptor = parse_report_descriptor(&descriptor)
+            .map_err(DeviceSelectorError::ReportDescriptorError)?;
         let res = report_descriptor
             .features
             .iter()
@@ -97,21 +118,23 @@ impl DeviceSelector {
         Ok(res)
     }
 
-    fn get_report_descriptor(&self, dev: &HidDevice) -> Result<Vec<u8>, ISPError> {
+    fn get_report_descriptor(&self, dev: &HidDevice) -> Result<Vec<u8>, DeviceSelectorError> {
         let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let size: usize = dev
             .get_report_descriptor(&mut buf)
-            .map_err(ISPError::from)?;
+            .map_err(DeviceSelectorError::from)?;
         Ok(buf[..size].to_vec())
     }
 
     fn get_descriptor_with_features(
-        //FIXME rename
         &self,
         path: &CStr,
-    ) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
-        let descriptor: Result<Vec<u8>, ISPError>;
-        let feature_report_ids: Result<Vec<u32>, ISPError>;
+    ) -> (
+        Result<Vec<u8>, DeviceSelectorError>,
+        Result<Vec<u32>, DeviceSelectorError>,
+    ) {
+        let descriptor: Result<Vec<u8>, DeviceSelectorError>;
+        let feature_report_ids: Result<Vec<u32>, DeviceSelectorError>;
         match self.api.open_path(path) {
             Ok(ref dev) => {
                 descriptor = self.get_report_descriptor(&dev);
@@ -120,13 +143,13 @@ impl DeviceSelector {
                         feature_report_ids = self.get_feature_report_ids_from_descriptor(report);
                     }
                     Err(_) => {
-                        feature_report_ids = Err(ISPError::NotFound);
+                        feature_report_ids = Err(DeviceSelectorError::NotFound);
                     }
                 }
             }
             Err(err) => {
-                descriptor = Err(ISPError::from(err));
-                feature_report_ids = Err(ISPError::NotFound);
+                descriptor = Err(DeviceSelectorError::from(err));
+                feature_report_ids = Err(DeviceSelectorError::NotFound);
             }
         }
         return (descriptor, feature_report_ids);
@@ -136,7 +159,7 @@ impl DeviceSelector {
         &self,
         devices: I,
         report_id: u32,
-    ) -> Result<&'a DeviceInfo, ISPError> {
+    ) -> Result<&'a DeviceInfo, DeviceSelectorError> {
         for d in devices {
             let ids = self.get_feature_report_ids_from_path(d.path())?;
             for id in ids {
@@ -145,10 +168,10 @@ impl DeviceSelector {
                 }
             }
         }
-        Err(ISPError::NotFound)
+        Err(DeviceSelectorError::NotFound)
     }
 
-    fn open_isp_devices(&self, part: Part) -> Result<ISPDevice, ISPError> {
+    fn open_isp_devices(&self, part: Part) -> Result<ISPDevice, DeviceSelectorError> {
         let sorted_devices = self.sorted_usb_device_list();
         let isp_devices: Vec<_> = sorted_devices
             .clone()
@@ -195,7 +218,7 @@ impl DeviceSelector {
 
         let device_count = isp_devices.len();
         if device_count == 0 {
-            return Err(ISPError::NotFound);
+            return Err(DeviceSelectorError::NotFound);
         }
 
         let s = isp_devices.clone();
@@ -220,7 +243,7 @@ impl DeviceSelector {
         }
     }
 
-    fn switch_kb_device(&mut self, part: Part) -> Result<ISPDevice, ISPError> {
+    fn switch_kb_device(&mut self, part: Part) -> Result<ISPDevice, DeviceSelectorError> {
         info!(
             "Looking for vId:{:#06x} pId:{:#06x}",
             part.vendor_id, part.product_id
@@ -234,20 +257,9 @@ impl DeviceSelector {
 
         let mut cmd_device_info: Option<&DeviceInfo> = None;
         for d in filtered_devices {
-            #[cfg(not(target_os = "linux"))]
-            debug!(
-                "Found Device: {:?} {} {:#06x} {:#06x}",
-                d.path(),
-                d.interface_number(),
-                d.usage_page(),
-                d.usage()
-            );
-            #[cfg(target_os = "linux")]
-            debug!("Found Device: {:?} {}", d.path(), d.interface_number());
-
             let ids = self
                 .get_feature_report_ids_from_path(d.path())
-                .map_err(|_| ISPError::NotFound)?;
+                .map_err(|_| DeviceSelectorError::NotFound)?;
             for id in ids {
                 if id == part.isp_report_id {
                     cmd_device_info = Some(d);
@@ -257,20 +269,20 @@ impl DeviceSelector {
 
         let Some(cmd_device_info) = cmd_device_info else {
             info!("Regular device didn't come up...");
-            return Err(ISPError::NotFound);
+            return Err(DeviceSelectorError::NotFound);
         };
 
         debug!("Opening: {:?}", cmd_device_info.path());
         let device = self
             .api
             .open_path(cmd_device_info.path())
-            .map_err(ISPError::from)?;
+            .map_err(DeviceSelectorError::from)?;
 
         info!("Found regular device. Entering ISP mode...");
         if let Err(err) = self.enter_isp_mode(&device) {
             debug!("Error: {:}", err);
             match err {
-                ISPError::HidError(err) if is_expected_error(&err) => {}
+                DeviceSelectorError::HidError(err) if is_expected_error(&err) => {}
                 _ => {
                     error!("Unexpected: {:}", err);
                     info!("Waiting...");
@@ -287,12 +299,16 @@ impl DeviceSelector {
 
         let Ok(isp_device) = self.open_isp_devices(part) else {
             info!("ISP device didn't come up...");
-            return Err(ISPError::NotFound);
+            return Err(DeviceSelectorError::NotFound);
         };
         Ok(isp_device)
     }
 
-    pub fn find_isp_device(&mut self, part: Part, retries: usize) -> Result<ISPDevice, ISPError> {
+    pub fn find_isp_device(
+        &mut self,
+        part: Part,
+        retries: usize,
+    ) -> Result<ISPDevice, DeviceSelectorError> {
         for attempt in 1..retries + 1 {
             self.api.refresh_devices()?;
             if attempt > 1 {
@@ -310,16 +326,16 @@ impl DeviceSelector {
                 return Ok(devices);
             }
         }
-        Err(ISPError::NotFound)
+        Err(DeviceSelectorError::NotFound)
     }
 
-    fn enter_isp_mode(&self, handle: &HidDevice) -> Result<(), ISPError> {
+    fn enter_isp_mode(&self, handle: &HidDevice) -> Result<(), DeviceSelectorError> {
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_ISP, CMD_ISP_MODE, 0x00, 0x00, 0x00, 0x00];
         handle.send_feature_report(&cmd)?;
         Ok(())
     }
 
-    pub fn connected_devices_tree(&self) -> Result<Vec<DeviceNode>, ISPError> {
+    pub fn connected_devices_tree(&self) -> Result<Vec<DeviceNode>, DeviceSelectorError> {
         let devices: Vec<_> = self.sorted_usb_device_list();
 
         let id_chunks = devices.iter().chunk_by(|d| {
