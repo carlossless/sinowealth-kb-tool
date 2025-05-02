@@ -28,9 +28,9 @@ pub struct ItemNode {
     #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub usage: u16,
     #[cfg(target_os = "windows")]
-    pub descriptor: Result<Vec<u8>, ISPError>,
+    pub descriptor: Result<Vec<u8>, DeviceSelectorError>,
     #[cfg(target_os = "windows")]
-    pub feature_report_ids: Result<Vec<u32>, ISPError>,
+    pub feature_report_ids: Result<Vec<u32>, DeviceSelectorError>,
 }
 
 const INDENT_SIZE: usize = 4;

@@ -151,4 +151,6 @@ fi
 
 reboot_device
 
+$TOOL list
+
 echo "Passed all tests!"
