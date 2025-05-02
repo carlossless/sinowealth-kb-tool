@@ -356,7 +356,6 @@ impl DeviceSelector {
                 }
 
                 let (descriptor, feature_report_ids) = get_d_f(&self.api, &self, path);
-
                 let interface_node = InterfaceNode {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     path: path.to_str().unwrap().to_string(),

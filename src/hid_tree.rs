@@ -61,12 +61,12 @@ impl InterfaceNode {
         s.push_str(&format!("    interface_number={}\n", self.interface_number));
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
-            let descriptor = self.descriptor.as_ref().unwrap();
+            let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
                 "    report_descriptor=[{}]\n",
                 to_hex_string(&descriptor)
             ));
-            let feature_report_ids = self.feature_report_ids.as_ref().unwrap();
+            let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
                 "    feature_report_ids={}\n",
                 feature_report_ids
@@ -83,11 +83,6 @@ impl InterfaceNode {
             }
         }
         return s;
-        #[cfg(target_os = "windows")]
-        return format!(
-            "    interface_number={} usage_page={:#06x} usage={:#06x} report_descriptor={} feature_report_ids={}\n",
-            self.path, self.interface_number, self.usage_page, self.usage, to_hex_string(&self.descriptor), self.feature_report_ids.iter().map(|rid| format!("{:#04x}", rid)).collect::<Vec<String>>().join(", ")
-        );
     }
 }
 
@@ -105,13 +100,15 @@ impl ItemNode {
                 "        path=\"{}\" usage_page={:#06x} usage={:#06x}\n",
                 self.path, self.usage_page, self.usage
             ));
+            let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
                 "        report_descriptor={}\n",
-                to_hex_string(&self.descriptor)
+                to_hex_string(&descriptor)
             ));
+            let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
                 "        feature_report_ids={}\n",
-                self.feature_report_ids
+                feature_report_ids
                     .iter()
                     .map(|rid| format!("{:#04x}", rid))
                     .collect::<Vec<String>>()
