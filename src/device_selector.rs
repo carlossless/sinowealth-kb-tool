@@ -202,6 +202,8 @@ impl DeviceSelector {
         }
 
         let s = isp_devices.clone();
+        // TODO: check for both feature report IDs in macOS and Linux and get that device
+        // TODO: check for each feature report IDs in Windows and get each of those devices
         let cmd_device = self.get_device_for_report_id(s, REPORT_ID_ISP as u32)?;
         debug!("CMD device: {}", cmd_device.info());
         #[cfg(not(target_os = "windows"))]
