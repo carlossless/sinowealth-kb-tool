@@ -26,7 +26,10 @@ const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 #[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE: u16 = 0x0001;
 
-use crate::{hid_tree::{DeviceNode, InterfaceNode, ItemNode}, ISPDevice, ISPError, Part}; // TODO: Create own error here
+use crate::{
+    hid_tree::{DeviceNode, InterfaceNode, ItemNode},
+    ISPDevice, ISPError, Part,
+}; // TODO: Create own error here
 
 pub struct DeviceSelector {
     api: hidapi::HidApi,
@@ -325,15 +328,11 @@ impl DeviceSelector {
                 return (d.path(), d.interface_number(), d.usage_page(), d.usage());
             });
 
-            for (
-                key,
-                devices
-            ) in &path_chunks {
+            for (key, devices) in &path_chunks {
                 #[cfg(any(target_os = "macos", target_os = "linux"))]
                 let (path, interface_number) = key;
                 #[cfg(target_os = "windows")]
                 let (path, interface_number, usage_page, usage) = key;
-
 
                 let mut children: Vec<ItemNode> = vec![];
 
@@ -366,7 +365,7 @@ impl DeviceSelector {
                     descriptor,
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     feature_report_ids,
-                     #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    #[cfg(any(target_os = "macos", target_os = "windows"))]
                     children,
                 };
 
@@ -379,17 +378,23 @@ impl DeviceSelector {
     }
 }
 
-fn get_d_f(api: &HidApi, ds: &DeviceSelector, path: &CStr) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
+fn get_d_f(
+    api: &HidApi,
+    ds: &DeviceSelector,
+    path: &CStr,
+) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
     let mut descriptor: Result<Vec<u8>, ISPError> = Err(ISPError::NotFound); // FIXME
-    let mut feature_report_ids: Result<Vec<u32>, ISPError>  = Err(ISPError::NotFound); // FIXME
-    match api.open_path(path) { // FIXME
+    let mut feature_report_ids: Result<Vec<u32>, ISPError> = Err(ISPError::NotFound); // FIXME
+    match api.open_path(path) {
+        // FIXME
         Ok(dev) => {
             let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
             match dev.get_report_descriptor(&mut buf) {
                 Ok(size) => {
                     descriptor = Ok(buf[..size].to_vec());
                     if let Ok(_) = descriptor {
-                        feature_report_ids = ds.get_feature_report_ids_from_device(dev); // TODO: refactor
+                        feature_report_ids = ds.get_feature_report_ids_from_device(dev);
+                        // TODO: refactor
                     }
                 }
                 Err(err) => {

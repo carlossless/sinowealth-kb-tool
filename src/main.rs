@@ -1,5 +1,8 @@
 use std::{
-    env, fs, io::{self, Read}, path::Display, process::ExitCode
+    env, fs,
+    io::{self, Read},
+    path::Display,
+    process::ExitCode,
 };
 
 use clap::{arg, value_parser, ArgMatches, Command};
@@ -163,7 +166,12 @@ fn err_main() -> Result<(), CLIError> {
         Some(("list", sub_matches)) => {
             let report = sub_matches.get_flag("report");
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let devices: Vec<String> = ds.connected_devices_tree().unwrap().iter().map(DeviceNode::to_string).collect();
+            let devices: Vec<String> = ds
+                .connected_devices_tree()
+                .unwrap()
+                .iter()
+                .map(DeviceNode::to_string)
+                .collect();
             println!("{}", devices.join("\n"));
         }
         Some(("convert", sub_matches)) => {

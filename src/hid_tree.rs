@@ -58,11 +58,9 @@ impl InterfaceNode {
             self.path, self.interface_number
         ));
         #[cfg(target_os = "windows")]
-        s.push_str(&format!(
-            "    interface_number={}\n",
-            self.interface_number
-        ));
-        #[cfg(any(target_os = "macos", target_os = "linux"))] {
+        s.push_str(&format!("    interface_number={}\n", self.interface_number));
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        {
             let descriptor = self.descriptor.as_ref().unwrap();
             s.push_str(&format!(
                 "    report_descriptor=[{}]\n",
@@ -71,10 +69,15 @@ impl InterfaceNode {
             let feature_report_ids = self.feature_report_ids.as_ref().unwrap();
             s.push_str(&format!(
                 "    feature_report_ids={}\n",
-                feature_report_ids.iter().map(|rid| format!("{:#04x}", rid)).collect::<Vec<String>>().join(", ") // FIXME
+                feature_report_ids
+                    .iter()
+                    .map(|rid| format!("{:#04x}", rid))
+                    .collect::<Vec<String>>()
+                    .join(", ") // FIXME
             ));
         }
-        #[cfg(any(target_os = "macos", target_os = "windows"))] {
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        {
             for child in &self.children {
                 s.push_str(&child.to_string());
             }
@@ -108,7 +111,11 @@ impl ItemNode {
             ));
             s.push_str(&format!(
                 "        feature_report_ids={}\n",
-                self.feature_report_ids.iter().map(|rid| format!("{:#04x}", rid)).collect::<Vec<String>>().join(", ")
+                self.feature_report_ids
+                    .iter()
+                    .map(|rid| format!("{:#04x}", rid))
+                    .collect::<Vec<String>>()
+                    .join(", ")
             ));
         }
         s
