@@ -81,8 +81,16 @@ impl DeviceSelector {
         let size: usize = dev
             .get_report_descriptor(&mut buf)
             .map_err(ISPError::from)?;
+        let descriptor = buf[..size].to_vec();
+        self.get_feature_report_ids_from_descriptor(&descriptor)
+    }
+
+    fn get_feature_report_ids_from_descriptor(
+        &self,
+        descriptor: &Vec<u8>,
+    ) -> Result<Vec<u32>, ISPError> {
         let report_descriptor =
-            parse_report_descriptor(&buf[..size]).map_err(ISPError::ReportDescriptorError)?;
+            parse_report_descriptor(&descriptor).map_err(ISPError::ReportDescriptorError)?;
         let res = report_descriptor
             .features
             .iter()
@@ -108,16 +116,14 @@ impl DeviceSelector {
         let descriptor: Result<Vec<u8>, ISPError>;
         let feature_report_ids: Result<Vec<u32>, ISPError>;
         match self.api.open_path(path) {
-            // FIXME
             Ok(ref dev) => {
                 descriptor = self.get_report_descriptor(&dev);
                 match descriptor {
-                    Ok(ref _report) => {
-                        feature_report_ids = self.get_feature_report_ids_from_device(&dev);
-                        // FIXME: use report
+                    Ok(ref report) => {
+                        feature_report_ids = self.get_feature_report_ids_from_descriptor(report);
                     }
-                    Err(ref _err) => {
-                        feature_report_ids = Err(ISPError::NotFound); // FIXME: use actual error
+                    Err(_) => {
+                        feature_report_ids = Err(ISPError::NotFound);
                     }
                 }
             }
