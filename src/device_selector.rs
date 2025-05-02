@@ -382,7 +382,7 @@ impl DeviceSelector {
                     #[cfg(target_os = "windows")]
                     {
                         let (descriptor, feature_report_ids) = self.get_d_f(path);
-                        interface_node.children.push(ItemNode {
+                        children.push(ItemNode {
                             path: path.to_str().unwrap().to_string(),
                             usage_page: d.usage_page(),
                             usage: d.usage(),
