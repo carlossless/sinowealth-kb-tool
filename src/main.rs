@@ -166,10 +166,7 @@ fn err_main() -> Result<(), CLIError> {
         Some(("list", sub_matches)) => {
             let report = sub_matches.get_flag("report"); // FIXME
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let tree  = ds
-                .connected_devices_tree()
-                .unwrap()
-                .to_tree_string(0);
+            let tree = ds.connected_devices_tree().unwrap().to_tree_string(0);
             println!("{}", tree);
         }
         Some(("convert", sub_matches)) => {

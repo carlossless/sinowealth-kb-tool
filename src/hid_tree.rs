@@ -75,23 +75,40 @@ impl TreeDisplay for InterfaceNode {
             self.path, self.interface_number
         ));
         #[cfg(target_os = "windows")]
-        s.push_str(&format!("{indent}interface_number={}\n", self.interface_number));
+        s.push_str(&format!(
+            "{indent}interface_number={}\n",
+            self.interface_number
+        ));
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
-            let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
-            s.push_str(&format!(
-                "{indent}report_descriptor=[{}]\n",
-                to_hex_string(&descriptor)
-            ));
-            let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
-            s.push_str(&format!(
-                "{indent}feature_report_ids={}\n",
-                feature_report_ids
-                    .iter()
-                    .map(|rid| format!("{:#04x}", rid))
-                    .collect::<Vec<String>>()
-                    .join(", ") // FIXME
-            ));
+            let descriptor = self.descriptor.as_ref();
+            match descriptor {
+                Ok(descriptor) => {
+                    s.push_str(&format!(
+                        "{indent}report_descriptor=[{}]\n",
+                        to_hex_string(&descriptor)
+                    ));
+                }
+                Err(e) => {
+                    s.push_str(&format!("{indent}report_descriptor=error: {}\n", e));
+                }
+            }
+            let feature_report_ids = self.feature_report_ids.as_ref();
+            match feature_report_ids {
+                Ok(feature_report_ids) => {
+                    s.push_str(&format!(
+                        "{indent}feature_report_ids=[{}]\n",
+                        feature_report_ids
+                            .iter()
+                            .map(|rid| format!("{:#04x}", rid))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    ));
+                }
+                Err(e) => {
+                    s.push_str(&format!("{indent}feature_report_ids=error: {}\n", e));
+                }
+            }
         }
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
@@ -118,20 +135,34 @@ impl TreeDisplay for ItemNode {
                 "{indent}path=\"{}\" usage_page={:#06x} usage={:#06x}\n",
                 self.path, self.usage_page, self.usage
             ));
-            let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
-            s.push_str(&format!(
-                "{indent}report_descriptor={}\n",
-                to_hex_string(&descriptor)
-            ));
-            let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
-            s.push_str(&format!(
-                "{indent}feature_report_ids={}\n",
-                feature_report_ids
-                    .iter()
-                    .map(|rid| format!("{:#04x}", rid))
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ));
+            let descriptor = self.descriptor.as_ref();
+            match descriptor {
+                Ok(descriptor) => {
+                    s.push_str(&format!(
+                        "{indent}report_descriptor=[{}]\n",
+                        to_hex_string(&descriptor)
+                    ));
+                }
+                Err(e) => {
+                    s.push_str(&format!("{indent}report_descriptor=error: {}\n", e));
+                }
+            }
+            let feature_report_ids = self.feature_report_ids.as_ref();
+            match feature_report_ids {
+                Ok(feature_report_ids) => {
+                    s.push_str(&format!(
+                        "{indent}feature_report_ids=[{}]\n",
+                        feature_report_ids
+                            .iter()
+                            .map(|rid| format!("{:#04x}", rid))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    ));
+                }
+                Err(e) => {
+                    s.push_str(&format!("{indent}feature_report_ids=error: {}\n", e));
+                }
+            }
         }
         s
     }
