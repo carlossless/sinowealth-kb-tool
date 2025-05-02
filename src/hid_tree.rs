@@ -1,5 +1,3 @@
-use hidapi::HidError;
-
 use crate::{to_hex_string, ISPError};
 
 pub struct DeviceNode {
