@@ -50,7 +50,6 @@ impl DeviceNode {
 
 impl InterfaceNode {
     pub fn to_string(&self) -> String {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
         let mut s = String::new();
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         s.push_str(&format!(
