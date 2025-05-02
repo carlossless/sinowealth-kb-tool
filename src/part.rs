@@ -9,11 +9,7 @@ pub struct Part {
     pub product_id: u16,
 
     /// USB interface number with the ISP report
-    pub isp_iface_num: u8,
-    /// HID collection `usage_page` with the ISP report
-    pub isp_usage_page: u16,
-    /// HID collection `usage` with the ISP report
-    pub isp_usage: u16,
+    pub isp_iface_num: i32,
     /// HID report ID
     pub isp_report_id: u32,
 
@@ -29,8 +25,6 @@ pub const PART_BASE_DEFAULT: Part = Part {
     product_id: 0x0000,
 
     isp_iface_num: 1,
-    isp_usage_page: 0xff00,
-    isp_usage: 0x0001,
     isp_report_id: 5,
 
     reboot: true,
@@ -193,7 +187,6 @@ pub const PART_KZZI_K68PRO: Part = Part {
 pub const PART_WEIKAV_SUGAR65: Part = Part {
     vendor_id: 0x05ac,
     product_id: 0x024f,
-    isp_usage: 0x0002,
     ..PART_BASE_SH68F90
 };
 

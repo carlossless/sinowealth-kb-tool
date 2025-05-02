@@ -1,14 +1,13 @@
 use std::{
     env, fs,
     io::{self, Read},
-    path::Display,
     process::ExitCode,
 };
 
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_num::maybe_hex;
 use device_selector::DeviceSelector;
-use hid_tree::{DeviceNode, TreeDisplay};
+use hid_tree::TreeDisplay;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use thiserror::Error;
@@ -162,7 +161,7 @@ fn err_main() -> Result<(), CLIError> {
             let device = ds.find_isp_device(part).map_err(CLIError::from)?;
             device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
-        Some(("list", sub_matches)) => {
+        Some(("list", _sub_matches)) => {
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
             let tree = ds.connected_devices_tree().unwrap().to_tree_string(0);
             println!("{}", tree);
@@ -261,9 +260,7 @@ impl PartCommand for Command {
         )
         .arg(arg!(--bootloader_size <SIZE>).value_parser(maybe_hex::<usize>))
         .arg(arg!(--page_size <SIZE>).value_parser(maybe_hex::<usize>))
-        .arg(arg!(--isp_iface_num <NUM>).value_parser(maybe_hex::<u8>))
-        .arg(arg!(--isp_usage_page <PAGE>).value_parser(maybe_hex::<u16>))
-        .arg(arg!(--isp_usage <USAGE>).value_parser(maybe_hex::<u16>))
+        .arg(arg!(--isp_iface_num <NUM>).value_parser(clap::value_parser!(i32)))
         .arg(arg!(--isp_report_id <USAGE>).value_parser(maybe_hex::<u32>))
         .arg(arg!(--reboot <BOOL>).value_parser(value_parser!(bool)))
     }
@@ -282,9 +279,7 @@ fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
     let page_size = sub_matches.get_one::<usize>("page_size");
     let vendor_id = sub_matches.get_one::<u16>("vendor_id");
     let product_id = sub_matches.get_one::<u16>("product_id");
-    let isp_iface_num = sub_matches.get_one::<u8>("isp_iface_num");
-    let isp_usage_page = sub_matches.get_one::<u16>("isp_usage_page");
-    let isp_usage = sub_matches.get_one::<u16>("isp_usage");
+    let isp_iface_num = sub_matches.get_one::<i32>("isp_iface_num");
     let isp_report_id = sub_matches.get_one::<u32>("isp_report_id");
     let reboot = sub_matches.get_one::<bool>("reboot");
 
@@ -305,12 +300,6 @@ fn get_part_from_matches(sub_matches: &ArgMatches) -> Part {
     }
     if let Some(isp_iface_num) = isp_iface_num {
         part.isp_iface_num = *isp_iface_num;
-    }
-    if let Some(isp_usage_page) = isp_usage_page {
-        part.isp_usage_page = *isp_usage_page;
-    }
-    if let Some(isp_usage) = isp_usage {
-        part.isp_usage = *isp_usage;
     }
     if let Some(isp_report_id) = isp_report_id {
         part.isp_report_id = *isp_report_id;

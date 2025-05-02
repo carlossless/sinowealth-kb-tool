@@ -1,8 +1,7 @@
 use core::time;
-use std::{ffi::CStr, fmt::Display, thread};
+use std::{ffi::CStr, thread};
 
-use clap::Error;
-use hidapi::{BusType, DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
+use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
 use itertools::Itertools;
 use log::{debug, error, info};
@@ -106,19 +105,19 @@ impl DeviceSelector {
         &self,
         path: &CStr,
     ) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
-        let mut descriptor: Result<Vec<u8>, ISPError> = Err(ISPError::NotFound); // FIXME
-        let mut feature_report_ids: Result<Vec<u32>, ISPError> = Err(ISPError::NotFound); // FIXME
+        let descriptor: Result<Vec<u8>, ISPError>;
+        let feature_report_ids: Result<Vec<u32>, ISPError>;
         match self.api.open_path(path) {
             // FIXME
             Ok(ref dev) => {
                 descriptor = self.get_report_descriptor(&dev);
                 match descriptor {
-                    Ok(ref report) => {
+                    Ok(ref _report) => {
                         feature_report_ids = self.get_feature_report_ids_from_device(&dev);
-                        // FIXME, use report
+                        // FIXME: use report
                     }
-                    Err(ref err) => {
-                        feature_report_ids = Err(ISPError::NotFound);
+                    Err(ref _err) => {
+                        feature_report_ids = Err(ISPError::NotFound); // FIXME: use actual error
                     }
                 }
             }
@@ -225,16 +224,9 @@ impl DeviceSelector {
         );
 
         let filtered_devices = self.sorted_usb_device_list().into_iter().filter(|d| {
-            #[cfg(not(target_os = "linux"))]
             return d.vendor_id() == part.vendor_id
                 && d.product_id() == part.product_id
-                && d.interface_number() == part.isp_iface_num as i32
-                && d.usage_page() == part.isp_usage_page
-                && d.usage() == part.isp_usage;
-            #[cfg(target_os = "linux")]
-            return d.vendor_id() == part.vendor_id
-                && d.product_id() == part.product_id
-                && d.interface_number() == part.isp_iface_num as i32;
+                && d.interface_number() == part.isp_iface_num;
         });
 
         let mut cmd_device_info: Option<&DeviceInfo> = None;
