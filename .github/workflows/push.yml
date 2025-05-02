@@ -41,8 +41,6 @@ jobs:
           sudo apt-get install -qq libusb-1.0.0-dev
       - name: Run tests
         run: cargo test --verbose
-      - name: Run integration tests
-        run: cargo run -- list -r
 
   build:
     strategy:
@@ -81,6 +79,8 @@ jobs:
         run: rustup target add $TARGET
       - name: Run build
         run: cargo build --release --verbose --target $TARGET
+      - name: Run integration tests
+        run: cargo run --release -- list
       - name: Compress
         run: |
           mkdir -p ./artifacts

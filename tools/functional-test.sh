@@ -63,7 +63,7 @@ $TOOL read \
     --isp_iface_num 1 \
     --isp_usage_page 0xff00 \
     --isp_usage 0x0001 \
-    --isp_index 1 \
+    --isp_report_id 5 \
     "$FILE_CUSTOM"
 
 reboot_device
@@ -137,7 +137,7 @@ $TOOL write \
     --isp_iface_num 1 \
     --isp_usage_page 0xff00 \
     --isp_usage 0x0001 \
-    --isp_index 1 \
+    --isp_report_id 5 \
     "$FILE_DEFAULT"
 
 reboot_device
