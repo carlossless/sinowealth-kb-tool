@@ -1,7 +1,8 @@
 use core::time;
-use std::{ffi::CStr, thread};
+use std::{ffi::CStr, fmt::Display, thread};
 
-use hidapi::{BusType, DeviceInfo, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
+use clap::Error;
+use hidapi::{BusType, DeviceInfo, HidApi, HidDevice, HidError, MAX_REPORT_DESCRIPTOR_SIZE};
 use hidparser::parse_report_descriptor;
 use itertools::Itertools;
 use log::{debug, error, info};
@@ -25,7 +26,7 @@ const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 #[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE: u16 = 0x0001;
 
-use crate::{to_hex_string, ISPDevice, ISPError, Part}; // TODO: Create own error here
+use crate::{hid_tree::{DeviceNode, InterfaceNode, ItemNode}, ISPDevice, ISPError, Part}; // TODO: Create own error here
 
 pub struct DeviceSelector {
     api: hidapi::HidApi,
@@ -294,9 +295,7 @@ impl DeviceSelector {
         Ok(())
     }
 
-    /// Prints out all connected HID devices and their paths.
-    pub fn print_connected_devices(&self, with_report_descriptor: bool) -> Result<(), ISPError> {
-        info!("Listing all connected HID devices...");
+    pub fn connected_devices_tree(&self) -> Result<Vec<DeviceNode>, ISPError> {
         let devices: Vec<_> = self.sorted_usb_device_list();
 
         let id_chunks = devices.iter().chunk_by(|d| {
@@ -308,55 +307,101 @@ impl DeviceSelector {
             );
         });
 
+        let mut device_tree_devices: Vec<DeviceNode> = vec![];
+
         for ((vid, pid, manufacturer, product), devices) in &id_chunks {
-            info!(
-                "ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"",
-                vid, pid, manufacturer, product
-            );
+            let mut node = DeviceNode {
+                product_id: pid,
+                vendor_id: vid,
+                product_string: product.to_string(),
+                manufacturer_string: manufacturer.to_string(),
+                children: vec![],
+            };
 
-            let path_chunks = devices.chunk_by(|d| (d.path(), d.interface_number()));
+            let path_chunks = devices.chunk_by(|d| {
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                return (d.path(), d.interface_number());
+                #[cfg(target_os = "windows")]
+                return (d.path(), d.interface_number(), d.usage_page(), d.usage());
+            });
 
-            for ((path, interface_number), devices) in &path_chunks {
-                info!(
-                    "  path=\"{}\" interface_number={}",
-                    path.to_str().unwrap(),
-                    interface_number
-                );
+            for (
+                key,
+                devices
+            ) in &path_chunks {
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                let (path, interface_number) = key;
+                #[cfg(target_os = "windows")]
+                let (path, interface_number, usage_page, usage) = key;
+
+
+                let mut children: Vec<ItemNode> = vec![];
 
                 for d in devices {
-                    #[cfg(not(target_os = "linux"))]
-                    info!(
-                        "    usage_page={:#06x} usage={:#06x}",
-                        d.usage_page(),
-                        d.usage()
-                    );
-                    #[cfg(target_os = "linux")]
-                    info!("    interface_number={:#06x}", d.interface_number());
+                    #[cfg(target_os = "macos")]
+                    children.push(ItemNode {
+                        usage_page: d.usage_page(),
+                        usage: d.usage(),
+                    });
+                    #[cfg(target_os = "windows")]
+                    {
+                        let (descriptor, feature_report_ids) = get_d_f(&self.api, &self, path);
+                        interface_node.children.push(DeviceTreeItemNode {
+                            path: path.to_str().unwrap().to_string(),
+                            usage_page: d.usage_page(),
+                            usage: d.usage(),
+                            descriptor,
+                            feature_report_ids,
+                        });
+                    }
                 }
 
-                if let Ok(dev) = self.api.open_path(path) {
-                    let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-                    if let Ok(size) = dev.get_report_descriptor(&mut buf) {
-                        if with_report_descriptor {
-                            info!("    report_descriptor={}", to_hex_string(&buf[..size]));
-                        }
-                        let rids: Vec<u32> = self.get_feature_report_ids_from_device(dev)?;
-                        let r_string: Vec<String> =
-                            rids.iter().map(|rid| format!("{:#04x}", rid)).collect();
-                        if !r_string.is_empty() {
-                            info!("    feature_report_ids={}", r_string.join(", "));
-                        }
-                    } else {
-                        info!("    feature_report_ids=error");
+                let (descriptor, feature_report_ids) = get_d_f(&self.api, &self, path);
+
+                let interface_node = InterfaceNode {
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    path: path.to_str().unwrap().to_string(),
+                    interface_number: interface_number,
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    descriptor,
+                    #[cfg(any(target_os = "macos", target_os = "linux"))]
+                    feature_report_ids,
+                     #[cfg(any(target_os = "macos", target_os = "windows"))]
+                    children,
+                };
+
+                node.children.push(interface_node);
+            }
+
+            device_tree_devices.push(node);
+        }
+        return Ok(device_tree_devices);
+    }
+}
+
+fn get_d_f(api: &HidApi, ds: &DeviceSelector, path: &CStr) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
+    let mut descriptor: Result<Vec<u8>, ISPError> = Err(ISPError::NotFound); // FIXME
+    let mut feature_report_ids: Result<Vec<u32>, ISPError>  = Err(ISPError::NotFound); // FIXME
+    match api.open_path(path) { // FIXME
+        Ok(dev) => {
+            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+            match dev.get_report_descriptor(&mut buf) {
+                Ok(size) => {
+                    descriptor = Ok(buf[..size].to_vec());
+                    if let Ok(_) = descriptor {
+                        feature_report_ids = ds.get_feature_report_ids_from_device(dev); // TODO: refactor
                     }
-                } else {
-                    info!("    feature_report_ids=could not open {:?}", path);
+                }
+                Err(err) => {
+                    descriptor = Err(ISPError::from(err));
+                    feature_report_ids = Err(ISPError::NotFound);
                 }
             }
         }
-
-        info!("Found {} devices", devices.len());
-
-        Ok(())
+        Err(err) => {
+            descriptor = Err(ISPError::from(err));
+            feature_report_ids = Err(ISPError::NotFound);
+        }
     }
+    return (descriptor, feature_report_ids);
 }

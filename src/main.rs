@@ -1,17 +1,17 @@
 use std::{
-    env, fs,
-    io::{self, Read},
-    process::ExitCode,
+    env, fs, io::{self, Read}, path::Display, process::ExitCode
 };
 
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_num::maybe_hex;
 use device_selector::DeviceSelector;
+use hid_tree::DeviceNode;
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use thiserror::Error;
 
 mod device_selector;
+mod hid_tree;
 mod ihex;
 mod isp_device;
 mod part;
@@ -163,7 +163,8 @@ fn err_main() -> Result<(), CLIError> {
         Some(("list", sub_matches)) => {
             let report = sub_matches.get_flag("report");
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            ds.print_connected_devices(report).map_err(CLIError::from)?;
+            let devices: Vec<String> = ds.connected_devices_tree().unwrap().iter().map(DeviceNode::to_string).collect();
+            println!("{}", devices.join("\n"));
         }
         Some(("convert", sub_matches)) => {
             let input_file = sub_matches
