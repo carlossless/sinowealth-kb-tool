@@ -101,6 +101,35 @@ impl DeviceSelector {
         Ok(buf[..size].to_vec())
     }
 
+    fn get_d_f(
+        //FIXME rename
+        &self,
+        path: &CStr,
+    ) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
+        let mut descriptor: Result<Vec<u8>, ISPError> = Err(ISPError::NotFound); // FIXME
+        let mut feature_report_ids: Result<Vec<u32>, ISPError> = Err(ISPError::NotFound); // FIXME
+        match self.api.open_path(path) {
+            // FIXME
+            Ok(ref dev) => {
+                descriptor = self.get_report_descriptor(&dev);
+                match descriptor {
+                    Ok(ref report) => {
+                        feature_report_ids = self.get_feature_report_ids_from_device(&dev);
+                        // FIXME, use report
+                    }
+                    Err(ref err) => {
+                        feature_report_ids = Err(ISPError::NotFound);
+                    }
+                }
+            }
+            Err(err) => {
+                descriptor = Err(ISPError::from(err));
+                feature_report_ids = Err(ISPError::NotFound);
+            }
+        }
+        return (descriptor, feature_report_ids);
+    }
+
     fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
         &self,
         devices: I,
@@ -352,7 +381,7 @@ impl DeviceSelector {
                     });
                     #[cfg(target_os = "windows")]
                     {
-                        let (descriptor, feature_report_ids) = get_d_f(&self.api, &self, path);
+                        let (descriptor, feature_report_ids) = self.get_d_f(path);
                         interface_node.children.push(ItemNode {
                             path: path.to_str().unwrap().to_string(),
                             usage_page: d.usage_page(),
@@ -363,7 +392,7 @@ impl DeviceSelector {
                     }
                 }
 
-                let (descriptor, feature_report_ids) = get_d_f(&self.api, &self, path);
+                let (descriptor, feature_report_ids) = self.get_d_f(path);
                 let interface_node = InterfaceNode {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     path: path.to_str().unwrap().to_string(),
@@ -383,33 +412,4 @@ impl DeviceSelector {
         }
         return Ok(device_tree_devices);
     }
-}
-
-fn get_d_f(
-    api: &HidApi,
-    ds: &DeviceSelector,
-    path: &CStr,
-) -> (Result<Vec<u8>, ISPError>, Result<Vec<u32>, ISPError>) {
-    let mut descriptor: Result<Vec<u8>, ISPError> = Err(ISPError::NotFound); // FIXME
-    let mut feature_report_ids: Result<Vec<u32>, ISPError> = Err(ISPError::NotFound); // FIXME
-    match api.open_path(path) {
-        // FIXME
-        Ok(ref dev) => {
-            descriptor = ds.get_report_descriptor(&dev);
-            match descriptor {
-                Ok(ref report) => {
-                    feature_report_ids = ds.get_feature_report_ids_from_device(&dev);
-                    // FIXME, use report
-                }
-                Err(ref err) => {
-                    feature_report_ids = Err(ISPError::NotFound);
-                }
-            }
-        }
-        Err(err) => {
-            descriptor = Err(ISPError::from(err));
-            feature_report_ids = Err(ISPError::NotFound);
-        }
-    }
-    return (descriptor, feature_report_ids);
 }
