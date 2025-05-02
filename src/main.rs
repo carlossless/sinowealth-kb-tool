@@ -57,7 +57,6 @@ fn cli() -> Command {
             Command::new("list")
                 .short_flag('l')
                 .about("List all connected devices and their identifiers. This is useful to find the manufacturer and product id for your device.")
-                .arg(arg!(-r --report "include report descriptor"))
         )
         .subcommand(
             Command::new("convert")
@@ -164,7 +163,6 @@ fn err_main() -> Result<(), CLIError> {
             device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
         Some(("list", sub_matches)) => {
-            let report = sub_matches.get_flag("report"); // FIXME
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
             let tree = ds.connected_devices_tree().unwrap().to_tree_string(0);
             println!("{}", tree);
