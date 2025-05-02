@@ -35,39 +35,57 @@ pub struct ItemNode {
     pub feature_report_ids: Result<Vec<u32>, ISPError>,
 }
 
-impl DeviceNode {
-    pub fn to_string(&self) -> String {
-        let mut s = format!(
-            "ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"\n",
-            self.vendor_id, self.product_id, self.manufacturer_string, self.product_string
-        );
-        for child in &self.children {
-            s.push_str(&child.to_string());
+const INDENT_SIZE: usize = 4;
+
+pub trait TreeDisplay {
+    fn to_tree_string(&self, level: usize) -> String;
+}
+
+impl TreeDisplay for Vec<DeviceNode> {
+    fn to_tree_string(&self, _level: usize) -> String {
+        let mut s = String::new();
+        for device in self {
+            s.push_str(&format!("{}\n", device.to_tree_string(0)));
         }
         s
     }
 }
 
-impl InterfaceNode {
-    pub fn to_string(&self) -> String {
+impl TreeDisplay for DeviceNode {
+    fn to_tree_string(&self, level: usize) -> String {
+        let indent = " ".repeat(INDENT_SIZE).repeat(level);
+        let mut s = format!(
+            "{indent}ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"\n",
+            self.vendor_id, self.product_id, self.manufacturer_string, self.product_string
+        );
+        for child in &self.children {
+            s.push_str(&child.to_tree_string(level + 1));
+        }
+        s
+    }
+}
+
+impl TreeDisplay for InterfaceNode {
+    fn to_tree_string(&self, level: usize) -> String {
+        let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s = String::new();
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         s.push_str(&format!(
-            "    path=\"{}\" interface_number={}\n",
+            "{indent}path=\"{}\" interface_number={}\n",
             self.path, self.interface_number
         ));
         #[cfg(target_os = "windows")]
-        s.push_str(&format!("    interface_number={}\n", self.interface_number));
+        s.push_str(&format!("{indent}interface_number={}\n", self.interface_number));
         #[cfg(any(target_os = "macos", target_os = "linux"))]
         {
             let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
-                "    report_descriptor=[{}]\n",
+                "{indent}report_descriptor=[{}]\n",
                 to_hex_string(&descriptor)
             ));
             let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
-                "    feature_report_ids={}\n",
+                "{indent}feature_report_ids={}\n",
                 feature_report_ids
                     .iter()
                     .map(|rid| format!("{:#04x}", rid))
@@ -78,35 +96,36 @@ impl InterfaceNode {
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
             for child in &self.children {
-                s.push_str(&child.to_string());
+                s.push_str(&child.to_tree_string(level + 1));
             }
         }
         return s;
     }
 }
 
-impl ItemNode {
-    pub fn to_string(&self) -> String {
+impl TreeDisplay for ItemNode {
+    fn to_tree_string(&self, level: usize) -> String {
+        let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s = String::new();
         #[cfg(any(target_os = "macos"))]
         s.push_str(&format!(
-            "        usage_page={:#06x} usage={:#06x}\n",
+            "{indent}usage_page={:#06x} usage={:#06x}\n",
             self.usage_page, self.usage
         ));
         #[cfg(any(target_os = "windows"))]
         {
             s.push_str(&format!(
-                "        path=\"{}\" usage_page={:#06x} usage={:#06x}\n",
+                "{indent}path=\"{}\" usage_page={:#06x} usage={:#06x}\n",
                 self.path, self.usage_page, self.usage
             ));
             let descriptor = self.descriptor.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
-                "        report_descriptor={}\n",
+                "{indent}report_descriptor={}\n",
                 to_hex_string(&descriptor)
             ));
             let feature_report_ids = self.feature_report_ids.as_ref().unwrap(); // TODO: handle error
             s.push_str(&format!(
-                "        feature_report_ids={}\n",
+                "{indent}feature_report_ids={}\n",
                 feature_report_ids
                     .iter()
                     .map(|rid| format!("{:#04x}", rid))

@@ -8,7 +8,7 @@ use std::{
 use clap::{arg, value_parser, ArgMatches, Command};
 use clap_num::maybe_hex;
 use device_selector::DeviceSelector;
-use hid_tree::DeviceNode;
+use hid_tree::{DeviceNode, TreeDisplay};
 use log::{error, info};
 use simple_logger::SimpleLogger;
 use thiserror::Error;
@@ -164,15 +164,13 @@ fn err_main() -> Result<(), CLIError> {
             device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
         Some(("list", sub_matches)) => {
-            let report = sub_matches.get_flag("report");
+            let report = sub_matches.get_flag("report"); // FIXME
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let devices: Vec<String> = ds
+            let tree  = ds
                 .connected_devices_tree()
                 .unwrap()
-                .iter()
-                .map(DeviceNode::to_string)
-                .collect();
-            println!("{}", devices.join("\n"));
+                .to_tree_string(0);
+            println!("{}", tree);
         }
         Some(("convert", sub_matches)) => {
             let input_file = sub_matches
