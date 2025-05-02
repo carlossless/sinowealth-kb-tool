@@ -25,9 +25,9 @@ pub struct InterfaceNode {
 pub struct ItemNode {
     #[cfg(target_os = "windows")]
     pub path: String,
-    #[cfg(any(target_os = "macos"))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub usage_page: u16,
-    #[cfg(any(target_os = "macos"))]
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
     pub usage: u16,
     #[cfg(target_os = "windows")]
     pub descriptor: Result<Vec<u8>, ISPError>,
