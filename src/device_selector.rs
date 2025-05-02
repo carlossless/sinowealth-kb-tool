@@ -74,10 +74,10 @@ impl DeviceSelector {
 
     fn get_feature_report_ids_from_path(&self, path: &CStr) -> Result<Vec<u32>, ISPError> {
         let dev = self.api.open_path(path).map_err(ISPError::from)?;
-        self.get_feature_report_ids_from_device(dev)
+        self.get_feature_report_ids_from_device(&dev)
     }
 
-    fn get_feature_report_ids_from_device(&self, dev: HidDevice) -> Result<Vec<u32>, ISPError> {
+    fn get_feature_report_ids_from_device(&self, dev: &HidDevice) -> Result<Vec<u32>, ISPError> {
         let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
         let size: usize = dev
             .get_report_descriptor(&mut buf)
@@ -91,6 +91,14 @@ impl DeviceSelector {
             .map(|report_id| report_id.into())
             .collect();
         Ok(res)
+    }
+
+    fn get_report_descriptor(&self, dev: &HidDevice) -> Result<Vec<u8>, ISPError> {
+        let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
+        let size: usize = dev
+            .get_report_descriptor(&mut buf)
+            .map_err(ISPError::from)?;
+        Ok(buf[..size].to_vec())
     }
 
     fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
@@ -386,18 +394,14 @@ fn get_d_f(
     let mut feature_report_ids: Result<Vec<u32>, ISPError> = Err(ISPError::NotFound); // FIXME
     match api.open_path(path) {
         // FIXME
-        Ok(dev) => {
-            let mut buf: [u8; MAX_REPORT_DESCRIPTOR_SIZE] = [0; MAX_REPORT_DESCRIPTOR_SIZE];
-            match dev.get_report_descriptor(&mut buf) {
-                Ok(size) => {
-                    descriptor = Ok(buf[..size].to_vec());
-                    if let Ok(_) = descriptor {
-                        feature_report_ids = ds.get_feature_report_ids_from_device(dev);
-                        // TODO: refactor
-                    }
+        Ok(ref dev) => {
+            descriptor = ds.get_report_descriptor(&dev);
+            match descriptor {
+                Ok(ref report) => {
+                    feature_report_ids = ds.get_feature_report_ids_from_device(&dev);
+                    // FIXME, use report
                 }
-                Err(err) => {
-                    descriptor = Err(ISPError::from(err));
+                Err(ref err) => {
                     feature_report_ids = Err(ISPError::NotFound);
                 }
             }
