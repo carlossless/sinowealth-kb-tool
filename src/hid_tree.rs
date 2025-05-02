@@ -53,7 +53,7 @@ impl TreeDisplay for DeviceNode {
     fn to_tree_string(&self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s = format!(
-            "{indent}ID {:04x}:{:04x}: manufacturer=\"{:}\" product=\"{:}\"\n",
+            "{indent}ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"\n",
             self.vendor_id, self.product_id, self.manufacturer_string, self.product_string
         );
         for child in &self.children {
