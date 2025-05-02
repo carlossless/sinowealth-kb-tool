@@ -105,9 +105,9 @@ impl DeviceSelector {
 
     fn get_feature_report_ids_from_descriptor(
         &self,
-        descriptor: &Vec<u8>,
+        descriptor: &[u8],
     ) -> Result<Vec<u32>, DeviceSelectorError> {
-        let report_descriptor = parse_report_descriptor(&descriptor)
+        let report_descriptor = parse_report_descriptor(descriptor)
             .map_err(DeviceSelectorError::ReportDescriptorError)?;
         let res = report_descriptor
             .features
@@ -137,7 +137,7 @@ impl DeviceSelector {
         let feature_report_ids: Result<Vec<u32>, DeviceSelectorError>;
         match self.api.open_path(path) {
             Ok(ref dev) => {
-                descriptor = self.get_report_descriptor(&dev);
+                descriptor = self.get_report_descriptor(dev);
                 match descriptor {
                     Ok(ref report) => {
                         feature_report_ids = self.get_feature_report_ids_from_descriptor(report);
@@ -152,7 +152,7 @@ impl DeviceSelector {
                 feature_report_ids = Err(DeviceSelectorError::NotFound);
             }
         }
-        return (descriptor, feature_report_ids);
+        (descriptor, feature_report_ids)
     }
 
     fn get_device_for_report_id<'a, I: IntoIterator<Item = &'a DeviceInfo>>(
@@ -196,26 +196,6 @@ impl DeviceSelector {
             })
             .collect();
 
-        for d in &isp_devices {
-            #[cfg(not(target_os = "linux"))]
-            debug!(
-                "Found ISP Device: {:#06x} {:#06x} {:?} {} {:#06x} {:#06x}",
-                d.vendor_id(),
-                d.product_id(),
-                d.path(),
-                d.interface_number(),
-                d.usage_page(),
-                d.usage()
-            );
-            #[cfg(target_os = "linux")]
-            debug!(
-                "Found ISP Device: {:#06x} {:#06x} {:?}",
-                d.vendor_id(),
-                d.product_id(),
-                d.path()
-            );
-        }
-
         let device_count = isp_devices.len();
         if device_count == 0 {
             return Err(DeviceSelectorError::NotFound);
@@ -223,7 +203,7 @@ impl DeviceSelector {
 
         let s = isp_devices.clone();
         let cmd_device = self.get_device_for_report_id(s, REPORT_ID_ISP as u32)?;
-        debug!("CMD device: {:?}", cmd_device.path());
+        debug!("CMD device: {}", cmd_device.info());
         #[cfg(not(target_os = "windows"))]
         return Ok(ISPDevice::new(
             part,
@@ -234,7 +214,7 @@ impl DeviceSelector {
         {
             let xfer_device =
                 self.get_device_for_report_id(isp_devices.clone(), REPORT_ID_XFER as u32)?;
-            debug!("XFER device: {:?}", xfer_device.path());
+            debug!("XFER device: {}", xfer_device.info());
             return Ok(ISPDevice::new(
                 part,
                 self.api.open_path(cmd_device.path()).unwrap(),
@@ -250,9 +230,9 @@ impl DeviceSelector {
         );
 
         let filtered_devices = self.sorted_usb_device_list().into_iter().filter(|d| {
-            return d.vendor_id() == part.vendor_id
+            d.vendor_id() == part.vendor_id
                 && d.product_id() == part.product_id
-                && d.interface_number() == part.isp_iface_num;
+                && d.interface_number() == part.isp_iface_num
         });
 
         let mut cmd_device_info: Option<&DeviceInfo> = None;
@@ -397,7 +377,7 @@ impl DeviceSelector {
                 let interface_node = InterfaceNode {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     path: path.to_str().unwrap().to_string(),
-                    interface_number: interface_number,
+                    interface_number,
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     descriptor,
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -411,6 +391,32 @@ impl DeviceSelector {
 
             device_tree_devices.push(node);
         }
-        return Ok(device_tree_devices);
+        Ok(device_tree_devices)
+    }
+}
+
+trait PlatformSpecificInfo {
+    fn info(&self) -> String;
+}
+
+impl PlatformSpecificInfo for DeviceInfo {
+    fn info(&self) -> String {
+        #[cfg(not(target_os = "linux"))]
+        return format!(
+            "Found ISP Device: {:#06x} {:#06x} {:?} {} {:#06x} {:#06x}",
+            self.vendor_id(),
+            self.product_id(),
+            self.path(),
+            self.interface_number(),
+            self.usage_page(),
+            self.usage()
+        );
+        #[cfg(target_os = "linux")]
+        format!(
+            "Found ISP Device: {:#06x} {:#06x} {:?}",
+            self.vendor_id(),
+            self.product_id(),
+            self.path()
+        )
     }
 }

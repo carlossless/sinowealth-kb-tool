@@ -56,6 +56,8 @@ fn cli() -> Command {
             Command::new("list")
                 .short_flag('l')
                 .about("List all connected devices and their identifiers. This is useful to find the manufacturer and product id for your device.")
+                .arg(arg!(--vendor_id <VID>).value_parser(maybe_hex::<u16>))
+                .arg(arg!(--product_id <PID>).value_parser(maybe_hex::<u16>))
         )
         .subcommand(
             Command::new("convert")
@@ -175,9 +177,31 @@ fn err_main() -> Result<(), CLIError> {
                 .map_err(CLIError::from)?;
             device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
-        Some(("list", _sub_matches)) => {
+        Some(("list", sub_matches)) => {
+            let vendor_id = sub_matches.get_one::<u16>("vendor_id");
+            let product_id = sub_matches.get_one::<u16>("product_id");
+
             let ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let tree = ds.connected_devices_tree().unwrap().to_tree_string(0);
+            let devices = ds
+                .connected_devices_tree()
+                .map_err(CLIError::DeviceSelectorError)?;
+            let tree = devices
+                .into_iter()
+                .filter(|device| {
+                    if let Some(vendor_id) = vendor_id {
+                        if device.vendor_id != *vendor_id {
+                            return false;
+                        }
+                    }
+                    if let Some(product_id) = product_id {
+                        if device.product_id != *product_id {
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .to_tree_string(0);
+
             println!("{}", tree);
         }
         Some(("convert", sub_matches)) => {

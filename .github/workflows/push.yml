@@ -22,7 +22,7 @@ jobs:
             ~/.cargo/registry
             ./target
           key: test-cargo-registry
-      - name: Format check
+      - name: Lint
         run: cargo fmt -- --check
 
   test:

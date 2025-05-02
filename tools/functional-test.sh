@@ -153,4 +153,10 @@ reboot_device
 
 $TOOL list
 
+$TOOL list --product_id 0x024f
+
+$TOOL list --vendor_id 0x05ac
+
+$TOOL list --vendor_id 0x05ac  --product_id 0x024f
+
 echo "Passed all tests!"

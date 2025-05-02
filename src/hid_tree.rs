@@ -36,28 +36,33 @@ pub struct ItemNode {
 const INDENT_SIZE: usize = 4;
 
 pub trait TreeDisplay {
-    fn to_tree_string(&self, level: usize) -> String;
+    fn to_tree_string(self, level: usize) -> String;
 }
 
-impl TreeDisplay for Vec<DeviceNode> {
-    fn to_tree_string(&self, _level: usize) -> String {
+impl<T, I> TreeDisplay for T
+where
+    T: Iterator<Item = I>,
+    I: TreeDisplay,
+{
+    fn to_tree_string(self, level: usize) -> String {
+        let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s: Vec<String> = vec![];
-        for device in self {
-            s.push(format!("{}", device.to_tree_string(0)));
+        for item in self {
+            s.push(format!("{}{}", indent, item.to_tree_string(level)));
         }
-        s.join("\n\n")
+        s.join("\n")
     }
 }
 
 impl TreeDisplay for DeviceNode {
-    fn to_tree_string(&self, level: usize) -> String {
+    fn to_tree_string(self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s: Vec<String> = vec![];
         s.push(format!(
             "{indent}ID {:04x}:{:04x} manufacturer=\"{:}\" product=\"{:}\"",
             self.vendor_id, self.product_id, self.manufacturer_string, self.product_string
         ));
-        for child in &self.children {
+        for child in self.children {
             s.push(child.to_tree_string(level + 1));
         }
         s.join("\n")
@@ -65,7 +70,7 @@ impl TreeDisplay for DeviceNode {
 }
 
 impl TreeDisplay for InterfaceNode {
-    fn to_tree_string(&self, level: usize) -> String {
+    fn to_tree_string(self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s: Vec<String> = vec![];
         #[cfg(any(target_os = "macos", target_os = "linux"))]
@@ -85,7 +90,7 @@ impl TreeDisplay for InterfaceNode {
                 Ok(descriptor) => {
                     s.push(format!(
                         "{indent}report_descriptor=[{}]",
-                        to_hex_string(&descriptor)
+                        to_hex_string(descriptor)
                     ));
                 }
                 Err(e) => {
@@ -111,24 +116,24 @@ impl TreeDisplay for InterfaceNode {
         }
         #[cfg(any(target_os = "macos", target_os = "windows"))]
         {
-            for child in &self.children {
+            for child in self.children {
                 s.push(child.to_tree_string(level + 1));
             }
         }
-        return s.join("\n");
+        s.join("\n")
     }
 }
 
 impl TreeDisplay for ItemNode {
-    fn to_tree_string(&self, level: usize) -> String {
+    fn to_tree_string(self, level: usize) -> String {
         let indent = " ".repeat(INDENT_SIZE).repeat(level);
         let mut s: Vec<String> = vec![];
-        #[cfg(any(target_os = "macos"))]
+        #[cfg(target_os = "macos")]
         s.push(format!(
             "{indent}usage_page={:#06x} usage={:#06x}",
             self.usage_page, self.usage
         ));
-        #[cfg(any(target_os = "windows"))]
+        #[cfg(target_os = "windows")]
         {
             s.push(format!(
                 "{indent}path=\"{}\" usage_page={:#06x} usage={:#06x}",
@@ -139,7 +144,7 @@ impl TreeDisplay for ItemNode {
                 Ok(descriptor) => {
                     s.push(format!(
                         "{indent}report_descriptor=[{}]",
-                        to_hex_string(&descriptor)
+                        to_hex_string(descriptor)
                     ));
                 }
                 Err(e) => {
