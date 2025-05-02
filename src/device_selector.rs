@@ -108,7 +108,7 @@ impl DeviceSelector {
         Ok(buf[..size].to_vec())
     }
 
-    fn get_d_f(
+    fn get_descriptor_with_features(
         //FIXME rename
         &self,
         path: &CStr,
@@ -379,7 +379,7 @@ impl DeviceSelector {
                     });
                     #[cfg(target_os = "windows")]
                     {
-                        let (descriptor, feature_report_ids) = self.get_d_f(path);
+                        let (descriptor, feature_report_ids) = self.get_descriptor_with_features(path);
                         children.push(ItemNode {
                             path: path.to_str().unwrap().to_string(),
                             usage_page: d.usage_page(),
@@ -390,7 +390,7 @@ impl DeviceSelector {
                     }
                 }
 
-                let (descriptor, feature_report_ids) = self.get_d_f(path);
+                let (descriptor, feature_report_ids) = self.get_descriptor_with_features(path);
                 let interface_node = InterfaceNode {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
                     path: path.to_str().unwrap().to_string(),
