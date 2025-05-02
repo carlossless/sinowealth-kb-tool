@@ -65,6 +65,7 @@ fn cli() -> Command {
                 .part_args()
                 .arg(arg!(input_file: <INPUT_FILE> "file to convert"))
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write results to"))
+                .arg(arg!(-r --retry <NUM>).value_parser(value_parser!(u32)).default_value("5"))
         )
         .subcommand(
             Command::new("read")
@@ -76,7 +77,8 @@ fn cli() -> Command {
                 .arg(
                     arg!(--full "read complete flash (including the bootloader)")
                         .conflicts_with("bootloader"),
-                ),
+                )
+                .arg(arg!(-r --retry <NUM>).value_parser(value_parser!(u32)).default_value("5"))
         )
         .subcommand(
             Command::new("write")
@@ -117,6 +119,11 @@ fn err_main() -> Result<(), CLIError> {
                 .map(|s| s.as_str())
                 .unwrap();
 
+            let retry_count = sub_matches
+                .get_one::<usize>("retry")
+                .map(|s| s.to_owned())
+                .unwrap();
+
             let full = sub_matches.get_flag("full");
 
             let bootloader = sub_matches.get_flag("bootloader");
@@ -130,7 +137,9 @@ fn err_main() -> Result<(), CLIError> {
             };
 
             let mut ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let device = ds.find_isp_device(part).map_err(CLIError::from)?;
+            let device = ds
+                .find_isp_device(part, retry_count)
+                .map_err(CLIError::from)?;
             let result = device.read_cycle(read_type).map_err(CLIError::from)?;
 
             let digest = md5::compute(&result);
@@ -143,6 +152,11 @@ fn err_main() -> Result<(), CLIError> {
             let input_file = sub_matches
                 .get_one::<String>("input_file")
                 .map(|s| s.as_str())
+                .unwrap();
+
+            let retry_count = sub_matches
+                .get_one::<usize>("retry")
+                .map(|s| s.to_owned())
                 .unwrap();
 
             let part = get_part_from_matches(sub_matches);
@@ -158,7 +172,9 @@ fn err_main() -> Result<(), CLIError> {
             }
 
             let mut ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
-            let device = ds.find_isp_device(part).map_err(CLIError::from)?;
+            let device = ds
+                .find_isp_device(part, retry_count)
+                .map_err(CLIError::from)?;
             device.write_cycle(&mut firmware).map_err(CLIError::from)?;
         }
         Some(("list", _sub_matches)) => {

@@ -18,8 +18,6 @@ const GAMING_KB_V2_PRODUCT_ID: u16 = 0x1021;
 
 const COMMAND_LENGTH: usize = 6;
 
-const MAX_RETRIES: usize = 5; // TODO: move to an arg
-
 #[cfg(not(target_os = "linux"))]
 const HID_ISP_USAGE_PAGE: u16 = 0xff00;
 #[cfg(not(target_os = "linux"))]
@@ -302,11 +300,7 @@ impl DeviceSelector {
         Ok(isp_device)
     }
 
-    pub fn find_isp_device(&mut self, part: Part) -> Result<ISPDevice, ISPError> {
-        self.find_isp_device_retry(part, MAX_RETRIES)
-    }
-
-    fn find_isp_device_retry(&mut self, part: Part, retries: usize) -> Result<ISPDevice, ISPError> {
+    pub fn find_isp_device(&mut self, part: Part, retries: usize) -> Result<ISPDevice, ISPError> {
         for attempt in 1..retries + 1 {
             self.api.refresh_devices()?;
             if attempt > 1 {
