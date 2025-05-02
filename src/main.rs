@@ -62,29 +62,25 @@ fn cli() -> Command {
                 .short_flag('c')
                 .about("Convert payload from bootloader to JTAG and vice versa.")
                 .arg(arg!(-d --direction <DIRECTION> "direction of conversion").value_parser(["to_jtag", "to_isp"]).required(true))
-                .part_args()
                 .arg(arg!(input_file: <INPUT_FILE> "file to convert"))
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write results to"))
-                .arg(arg!(-r --retry <NUM>).value_parser(value_parser!(u32)).default_value("5"))
+                .part_args()
         )
         .subcommand(
             Command::new("read")
                 .short_flag('r')
                 .about("Read flash contents. (Intel HEX)")
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write flash contents to"))
+                .arg(arg!(-f --fragment <fragment> "firmware fragment to read").value_parser(["firmware", "bootloader", "full"]).default_value("firmware"))
+                .arg(arg!(-r --retry <NUM> "number of retries trying to find device").value_parser(value_parser!(usize)).default_value("5"))
                 .part_args()
-                .arg(arg!(-b --bootloader --isp "read only booloader").conflicts_with("full"))
-                .arg(
-                    arg!(--full "read complete flash (including the bootloader)")
-                        .conflicts_with("bootloader"),
-                )
-                .arg(arg!(-r --retry <NUM>).value_parser(value_parser!(u32)).default_value("5"))
         )
         .subcommand(
             Command::new("write")
                 .short_flag('w')
                 .about("Write file (Intel HEX) into flash.")
                 .arg(arg!(input_file: <INPUT_FILE> "payload to write into flash"))
+                .arg(arg!(-r --retry <NUM> "number of retries trying to find device").value_parser(value_parser!(usize)).default_value("5"))
                 .part_args(),
         )
 }
@@ -124,23 +120,25 @@ fn err_main() -> Result<(), CLIError> {
                 .map(|s| s.to_owned())
                 .unwrap();
 
-            let full = sub_matches.get_flag("full");
-
-            let bootloader = sub_matches.get_flag("bootloader");
+            let fragment = sub_matches
+                .get_one::<String>("fragment")
+                .map(|s| s.as_str())
+                .unwrap();
 
             let part = get_part_from_matches(sub_matches);
 
-            let read_type = match (full, bootloader) {
-                (true, _) => ReadType::Full,
-                (_, true) => ReadType::Bootloader,
-                _ => ReadType::Normal,
+            let fragment: ReadFragment = match fragment {
+                "firmware" => ReadFragment::Firmware,
+                "bootloader" => ReadFragment::Bootloader,
+                "full" => ReadFragment::Full,
+                _ => panic!("Invalid read fragment"),
             };
 
             let mut ds = DeviceSelector::new().map_err(CLIError::DeviceSelectorError)?;
             let device = ds
                 .find_isp_device(part, retry_count)
                 .map_err(CLIError::from)?;
-            let result = device.read_cycle(read_type).map_err(CLIError::from)?;
+            let result = device.read_cycle(fragment).map_err(CLIError::from)?;
 
             let digest = md5::compute(&result);
             info!("MD5: {:x}", digest);

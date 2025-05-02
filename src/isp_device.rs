@@ -3,7 +3,7 @@ use std::{thread, time};
 use log::{debug, error, info};
 use thiserror::Error;
 
-use crate::{part::*, util, VerificationError};
+use crate::{is_expected_error, part::*, util, VerificationError};
 
 extern crate hidapi;
 
@@ -45,8 +45,8 @@ pub enum ISPError {
 }
 
 #[derive(Debug, Clone)]
-pub enum ReadType {
-    Normal,
+pub enum ReadFragment {
+    Firmware,
     Bootloader,
     Full,
 }
@@ -69,19 +69,19 @@ impl ISPDevice {
         }
     }
 
-    pub fn read_cycle(&self, read_type: ReadType) -> Result<Vec<u8>, ISPError> {
+    pub fn read_cycle(&self, read_fragment: ReadFragment) -> Result<Vec<u8>, ISPError> {
         self.enable_firmware()?;
 
-        let firmware = match read_type {
-            ReadType::Normal => self.read(0, self.part.firmware_size)?,
-            ReadType::Bootloader => {
-                self.read(self.part.firmware_size, self.part.bootloader_size)?
-            }
-            ReadType::Full => self.read(0, self.part.firmware_size + self.part.bootloader_size)?,
+        let (start_addr, length) = match read_fragment {
+            ReadFragment::Firmware => (0, self.part.firmware_size),
+            ReadFragment::Bootloader => (self.part.firmware_size, self.part.bootloader_size),
+            ReadFragment::Full => (0, self.part.firmware_size + self.part.bootloader_size)
         };
 
+        let firmware = self.read(start_addr, length)?;
+
         if self.part.reboot {
-            self.reboot()?;
+            self.reboot();
         }
 
         Ok(firmware)
@@ -105,7 +105,7 @@ impl ISPDevice {
         self.enable_firmware()?;
 
         if self.part.reboot {
-            self.reboot()?;
+            self.reboot();
         }
 
         Ok(())
@@ -237,25 +237,15 @@ impl ISPDevice {
     }
 
     /// Causes the device to start running the main firmware
-    fn reboot(&self) -> Result<(), ISPError> {
+    fn reboot(&self) {
         info!("Rebooting...");
         let cmd: [u8; COMMAND_LENGTH] = [REPORT_ID_CMD, CMD_REBOOT, 0, 0, 0, 0];
         if let Err(err) = self.cmd_device.send_feature_report(&cmd) {
             debug!("Error: {:}", err);
-            match err {
-                // janky way of silencing expected errors due to device not acting as proper usb device when rebooting
-                #[cfg(target_os = "macos")]
-                HidError::HidApiError { ref message } if message == "IOHIDDeviceSetReport failed: (0xE0005000) unknown error code" => { },
-                #[cfg(target_os = "linux")]
-                HidError::HidApiError { ref message } if message == "hid_error is not implemented yet" => { },
-                #[cfg(target_os = "windows")]
-                HidError::HidApiError { ref message } if message == "HidD_SetFeature: (0x0000001F) A device attached to the system is not functioning." => { },
-                _ => {
-                    error!("Unexpected: {:}", err);
-                }
-            };
+            if !is_expected_error(&err) {
+                error!("Unexpected error: {:}", err);
+            }
         }
         thread::sleep(time::Duration::from_millis(2000));
-        Ok(())
     }
 }
