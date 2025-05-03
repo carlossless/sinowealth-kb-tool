@@ -300,15 +300,15 @@ impl DeviceSelector {
             if let Ok(device) = self.find_device(part) {
                 bar.set_message("Regular device found. Switching to ISP mode...");
                 if let Ok(isp_device) = self.switch_to_isp_device(device, part) {
-                    bar.finish_with_message("Connected!");
-                    info!("Connected!");
+                    bar.finish_and_clear();
+                    eprintln!("Connected!");
                     return Ok(isp_device);
                 }
             }
             info!("Regular device not found. Trying ISP device...");
             if let Ok(isp_device) = self.find_isp_device(part) {
-                bar.finish_with_message("Connected!");
-                info!("Connected!");
+                bar.finish_and_clear();
+                eprintln!("Connected!");
                 return Ok(isp_device);
             }
         }

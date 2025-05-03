@@ -75,7 +75,7 @@ fn cli() -> Command {
                 .arg(arg!(--output_format <FORMAT>).value_parser(["ihex", "bin"]))
                 .arg(arg!(input_file: <INPUT_FILE> "file to convert"))
                 .arg(arg!(output_file: <OUTPUT_FILE> "file to write results to"))
-                .part_args()
+                .part_args() // TODO: not all of these args are needed and should be removed
         )
         .subcommand(
             Command::new("read")
