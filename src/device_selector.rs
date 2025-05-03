@@ -9,10 +9,7 @@ use log::{debug, error, info};
 use thiserror::Error;
 
 use crate::{
-    hid_tree::{
-        DeviceNode,
-        InterfaceNode,
-    },
+    hid_tree::{DeviceNode, InterfaceNode},
     is_expected_error, ISPDevice, Part,
 };
 
@@ -332,12 +329,9 @@ impl DeviceSelector {
     pub fn connected_devices_tree(&self) -> Result<Vec<DeviceNode>, DeviceSelectorError> {
         let devices: Vec<_> = self.sorted_usb_device_list();
 
-        let id_chunks = devices.into_iter().chunk_by(|d| {
-            return (
-                d.vendor_id(),
-                d.product_id()
-            );
-        });
+        let id_chunks = devices
+            .into_iter()
+            .chunk_by(|d| (d.vendor_id(), d.product_id()));
 
         let mut device_tree_devices: Vec<DeviceNode> = vec![];
 
@@ -350,21 +344,19 @@ impl DeviceSelector {
             let mut manufacturer_string: Option<String> = None;
             let mut product_string: Option<String> = None;
 
-            let path_chunks = devices.chunk_by(|d| {
-                (d.path(), d.interface_number())
-            });
+            let path_chunks = devices.chunk_by(|d| (d.path(), d.interface_number()));
 
             for (key, devices) in &path_chunks {
                 let (path, interface_number) = key;
 
                 #[cfg(any(target_os = "macos", target_os = "windows"))]
                 let mut children: Vec<ItemNode> = vec![];
-                
+
                 for d in devices {
-                    if manufacturer_string == None {
+                    if manufacturer_string.is_none() {
                         manufacturer_string = d.manufacturer_string().map(str::to_string);
                     }
-                    if product_string == None {
+                    if product_string.is_none() {
                         product_string = d.product_string().map(str::to_string);
                     }
                     #[cfg(target_os = "macos")]
@@ -403,13 +395,12 @@ impl DeviceSelector {
                 interface_nodes.push(interface_node);
             }
 
-
             device_tree_devices.push(DeviceNode {
                 vendor_id: vid,
                 product_id: pid,
                 manufacturer_string: manufacturer_string.clone().unwrap_or("None".to_string()),
                 product_string: product_string.clone().unwrap_or("None".to_string()),
-                children: interface_nodes
+                children: interface_nodes,
             });
         }
         Ok(device_tree_devices)
