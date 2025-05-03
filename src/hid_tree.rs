@@ -104,7 +104,7 @@ impl TreeDisplay for InterfaceNode {
                         "{indent}feature_report_ids=[{}]",
                         feature_report_ids
                             .iter()
-                            .map(|rid| format!("{:#04x}", rid))
+                            .map(|rid| format!("{}", rid))
                             .collect::<Vec<String>>()
                             .join(", ")
                     ));
@@ -158,7 +158,7 @@ impl TreeDisplay for ItemNode {
                         "{indent}feature_report_ids=[{}]",
                         feature_report_ids
                             .iter()
-                            .map(|rid| format!("{:#04x}", rid))
+                            .map(|rid| format!("{}", rid))
                             .collect::<Vec<String>>()
                             .join(", ")
                     ));
