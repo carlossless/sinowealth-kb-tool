@@ -6,10 +6,12 @@ use serial_test::serial;
 #[macro_use]
 mod common;
 
+use common::get_fixture_path;
+
 #[test]
 #[serial]
 fn test_convert_to_jtag() {
-    let input_file = "tests/fixtures/nuphy-air60_smk.hex";
+    let input_file = get_fixture_path("nuphy-air60_smk.hex");
     let output_file = test_filename!("hex");
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
@@ -32,7 +34,7 @@ fn test_convert_to_jtag() {
 #[test]
 #[serial]
 fn test_convert_to_isp() {
-    let input_file = "tests/fixtures/nuphy-air60_smk_jtag.hex";
+    let input_file = get_fixture_path("nuphy-air60_smk_jtag.hex");
     let output_file = test_filename!("hex");
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
@@ -55,7 +57,7 @@ fn test_convert_to_isp() {
 #[test]
 #[serial]
 fn test_convert_to_jtag_bin() {
-    let input_file = "tests/fixtures/nuphy-air60_smk.hex";
+    let input_file = get_fixture_path("nuphy-air60_smk.hex");
     let output_file = test_filename!("bin");
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd

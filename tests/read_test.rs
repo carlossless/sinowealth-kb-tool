@@ -6,6 +6,8 @@ use serial_test::serial;
 #[macro_use]
 mod common;
 
+use common::get_fixture_path;
+
 #[test]
 #[serial]
 fn test_read() {

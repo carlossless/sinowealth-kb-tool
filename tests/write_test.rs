@@ -6,10 +6,12 @@ use serial_test::serial;
 #[macro_use]
 mod common;
 
+use common::get_fixture_path;
+
 #[test]
 #[serial]
 fn test_write() {
-    let file = "tests/fixtures/nuphy-air60_smk.hex";
+    let file = get_fixture_path("nuphy-air60_smk.hex");
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("write")
@@ -22,7 +24,7 @@ fn test_write() {
 #[test]
 #[serial]
 fn test_write_and_readback() {
-    let fixture_file = "tests/fixtures/nuphy-air60_smk.hex";
+    let fixture_file = get_fixture_path("nuphy-air60_smk.hex");
     let mut write_cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = write_cmd
         .arg("write")
@@ -52,7 +54,7 @@ fn test_write_and_readback() {
 #[test]
 #[serial]
 fn test_write_custom_and_readback() {
-    let fixture_file = "tests/fixtures/nuphy-air60_smk.hex";
+    let fixture_file = get_fixture_path("nuphy-air60_smk.hex");
     let mut write_cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = write_cmd
         .arg("write")
