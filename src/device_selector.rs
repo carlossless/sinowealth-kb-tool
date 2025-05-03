@@ -347,17 +347,11 @@ impl DeviceSelector {
             };
 
             let path_chunks = devices.chunk_by(|d| {
-                #[cfg(any(target_os = "macos", target_os = "linux"))]
-                return (d.path(), d.interface_number());
-                #[cfg(target_os = "windows")]
-                return (d.path(), d.interface_number(), d.usage_page(), d.usage());
+                (d.path(), d.interface_number())
             });
 
             for (key, devices) in &path_chunks {
-                #[cfg(any(target_os = "macos", target_os = "linux"))]
                 let (path, interface_number) = key;
-                #[cfg(target_os = "windows")]
-                let (path, interface_number, usage_page, usage) = key;
 
                 let mut children: Vec<ItemNode> = vec![];
 
@@ -381,6 +375,7 @@ impl DeviceSelector {
                     }
                 }
 
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
                 let (descriptor, feature_report_ids) = self.get_descriptor_with_features(path);
                 let interface_node = InterfaceNode {
                     #[cfg(any(target_os = "macos", target_os = "linux"))]
