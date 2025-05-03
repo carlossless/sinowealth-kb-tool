@@ -4,7 +4,7 @@ use assert_cmd::Command;
 use serial_test::serial;
 
 #[macro_use]
-mod common;
+pub mod common;
 
 use common::get_fixture_path;
 
