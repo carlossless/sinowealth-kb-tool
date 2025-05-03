@@ -9,9 +9,15 @@ use log::{debug, error, info};
 use thiserror::Error;
 
 use crate::{
-    hid_tree::{DeviceNode, InterfaceNode, ItemNode},
+    hid_tree::{
+        DeviceNode,
+        InterfaceNode,
+    },
     is_expected_error, ISPDevice, Part,
 };
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use crate::hid_tree::ItemNode;
 
 const REPORT_ID_ISP: u8 = 0x05;
 const CMD_ISP_MODE: u8 = 0x75;
@@ -62,8 +68,8 @@ impl DeviceSelector {
             return (
                 d.vendor_id(),
                 d.product_id(),
-                d.path(),
                 d.interface_number(),
+                d.path(),
                 d.usage_page(),
                 d.usage(),
             );
@@ -71,8 +77,8 @@ impl DeviceSelector {
             return (
                 d.vendor_id(),
                 d.product_id(),
-                d.path(),
                 d.interface_number(),
+                d.path(),
             );
         });
         devices
@@ -326,25 +332,23 @@ impl DeviceSelector {
     pub fn connected_devices_tree(&self) -> Result<Vec<DeviceNode>, DeviceSelectorError> {
         let devices: Vec<_> = self.sorted_usb_device_list();
 
-        let id_chunks = devices.iter().chunk_by(|d| {
+        let id_chunks = devices.into_iter().chunk_by(|d| {
             return (
                 d.vendor_id(),
-                d.product_id(),
-                d.manufacturer_string().unwrap_or("None"),
-                d.product_string().unwrap_or("None"),
+                d.product_id()
             );
         });
 
         let mut device_tree_devices: Vec<DeviceNode> = vec![];
 
-        for ((vid, pid, manufacturer, product), devices) in &id_chunks {
-            let mut node = DeviceNode {
-                product_id: pid,
-                vendor_id: vid,
-                product_string: product.to_string(),
-                manufacturer_string: manufacturer.to_string(),
-                children: vec![],
-            };
+        for (key, devices) in &id_chunks {
+            let (vid, pid) = key;
+
+            let mut interface_nodes: Vec<InterfaceNode> = vec![];
+
+            // for some reason on linux-libusb the same device might not have the same manufacturer string in some cases
+            let mut manufacturer_string: Option<String> = None;
+            let mut product_string: Option<String> = None;
 
             let path_chunks = devices.chunk_by(|d| {
                 (d.path(), d.interface_number())
@@ -353,9 +357,16 @@ impl DeviceSelector {
             for (key, devices) in &path_chunks {
                 let (path, interface_number) = key;
 
+                #[cfg(any(target_os = "macos", target_os = "windows"))]
                 let mut children: Vec<ItemNode> = vec![];
-
+                
                 for d in devices {
+                    if manufacturer_string == None {
+                        manufacturer_string = d.manufacturer_string().map(str::to_string);
+                    }
+                    if product_string == None {
+                        product_string = d.product_string().map(str::to_string);
+                    }
                     #[cfg(target_os = "macos")]
                     children.push(ItemNode {
                         usage_page: d.usage_page(),
@@ -389,10 +400,17 @@ impl DeviceSelector {
                     children,
                 };
 
-                node.children.push(interface_node);
+                interface_nodes.push(interface_node);
             }
 
-            device_tree_devices.push(node);
+
+            device_tree_devices.push(DeviceNode {
+                vendor_id: vid,
+                product_id: pid,
+                manufacturer_string: manufacturer_string.clone().unwrap_or("None".to_string()),
+                product_string: product_string.clone().unwrap_or("None".to_string()),
+                children: interface_nodes
+            });
         }
         Ok(device_tree_devices)
     }
