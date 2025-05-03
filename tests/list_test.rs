@@ -32,10 +32,9 @@ ID 05ac:024f manufacturer=\"contact@carlossless.io\" product=\"SMK Keyboard\"
 #[serial]
 fn test_list_devices() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
-    let assert = cmd
-        .arg("list")
-        .assert();
-    assert.success()
+    let assert = cmd.arg("list").assert();
+    assert
+        .success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
 }
 
@@ -43,11 +42,9 @@ fn test_list_devices() {
 #[serial]
 fn test_list_with_vid_filter() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
-    let assert = cmd
-        .arg("list")
-        .args(&["--vendor_id", "0x05ac"])
-        .assert();
-    assert.success()
+    let assert = cmd.arg("list").args(&["--vendor_id", "0x05ac"]).assert();
+    assert
+        .success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
 }
 
@@ -55,11 +52,9 @@ fn test_list_with_vid_filter() {
 #[serial]
 fn test_list_with_pid_filter() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
-    let assert = cmd
-        .arg("list")
-        .args(&["--product_id", "0x024f"])
-        .assert();
-    assert.success()
+    let assert = cmd.arg("list").args(&["--product_id", "0x024f"]).assert();
+    assert
+        .success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
 }
 
@@ -72,6 +67,7 @@ fn test_list_with_vid_and_pid_filter() {
         .args(&["--vendor_id", "0x05ac"])
         .args(&["--product_id", "0x024f"])
         .assert();
-    assert.success()
+    assert
+        .success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
 }

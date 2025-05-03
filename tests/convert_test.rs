@@ -23,7 +23,10 @@ fn test_convert_to_jtag() {
     assert.success();
 
     let computed_md5 = md5::compute(fs::read(&output_file).unwrap());
-    assert_eq!(format!("{:x}", computed_md5), "3bbd99f81678fc11fdf1ba9eaaac2bd1");
+    assert_eq!(
+        format!("{:x}", computed_md5),
+        "3bbd99f81678fc11fdf1ba9eaaac2bd1"
+    );
 }
 
 #[test]
@@ -43,7 +46,10 @@ fn test_convert_to_isp() {
     assert.success();
 
     let computed_md5 = md5::compute(fs::read(&output_file).unwrap());
-    assert_eq!(format!("{:x}", computed_md5), "6594e5a1ab671deb40f36483a84ad61f");
+    assert_eq!(
+        format!("{:x}", computed_md5),
+        "6594e5a1ab671deb40f36483a84ad61f"
+    );
 }
 
 #[test]
@@ -63,5 +69,8 @@ fn test_convert_to_jtag_bin() {
     assert.success();
 
     let computed_md5 = md5::compute(fs::read(&output_file).unwrap());
-    assert_eq!(format!("{:x}", computed_md5), "df1ff7b247ae12dda37aa69730f090af");
+    assert_eq!(
+        format!("{:x}", computed_md5),
+        "df1ff7b247ae12dda37aa69730f090af"
+    );
 }

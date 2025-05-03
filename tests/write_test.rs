@@ -38,11 +38,15 @@ fn test_write_and_readback() {
         .args(&["--part", "nuphy-air60"])
         .arg(&output_file)
         .assert();
-    assert.success()
-        .stderr(predicates::str::contains("MD5: 662c8707c4be0e0712e30336b0e7cfd1"));
+    assert.success().stderr(predicates::str::contains(
+        "MD5: 662c8707c4be0e0712e30336b0e7cfd1",
+    ));
 
     let computed_md5 = md5::compute(fs::read(&output_file).unwrap());
-    assert_eq!(format!("{:x}", computed_md5), "6594e5a1ab671deb40f36483a84ad61f");
+    assert_eq!(
+        format!("{:x}", computed_md5),
+        "6594e5a1ab671deb40f36483a84ad61f"
+    );
 }
 
 #[test]
@@ -72,9 +76,13 @@ fn test_write_custom_and_readback() {
         .args(&["--firmware_size", "61440"])
         .arg(&output_file)
         .assert();
-    assert.success()
-        .stderr(predicates::str::contains("MD5: 662c8707c4be0e0712e30336b0e7cfd1"));
+    assert.success().stderr(predicates::str::contains(
+        "MD5: 662c8707c4be0e0712e30336b0e7cfd1",
+    ));
 
     let computed_md5 = md5::compute(fs::read(&output_file).unwrap());
-    assert_eq!(format!("{:x}", computed_md5), "6594e5a1ab671deb40f36483a84ad61f");
+    assert_eq!(
+        format!("{:x}", computed_md5),
+        "6594e5a1ab671deb40f36483a84ad61f"
+    );
 }
