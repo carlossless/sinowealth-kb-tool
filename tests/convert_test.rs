@@ -14,8 +14,8 @@ fn test_convert_to_jtag() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("convert")
-        .arg("--part").arg("nuphy-air60")
-        .arg("--direction").arg("to_jtag")
+        .args(&["--part", "nuphy-air60"])
+        .args(&["--direction", "to_jtag"])
         .arg(&input_file)
         .arg(&output_file)
         .assert();
@@ -34,8 +34,8 @@ fn test_convert_to_isp() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("convert")
-        .arg("--part").arg("nuphy-air60")
-        .arg("--direction").arg("to_isp")
+        .args(&["--part", "nuphy-air60"])
+        .args(&["--direction", "to_isp"])
         .arg(&input_file)
         .arg(&output_file)
         .assert();
@@ -54,8 +54,8 @@ fn test_convert_to_jtag_bin() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("convert")
-        .arg("--part").arg("nuphy-air60")
-        .arg("--direction").arg("to_jtag")
+        .args(&["--part", "nuphy-air60"])
+        .args(&["--direction", "to_jtag"])
         .arg(&input_file)
         .arg(&output_file)
         .assert();

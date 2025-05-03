@@ -45,7 +45,7 @@ fn test_list_with_vid_filter() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("list")
-        .arg("--vendor_id").arg("0x05ac")
+        .args(&["--vendor_id", "0x05ac"])
         .assert();
     assert.success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
@@ -57,7 +57,7 @@ fn test_list_with_pid_filter() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("list")
-        .arg("--product_id").arg("0x024f")
+        .args(&["--product_id", "0x024f"])
         .assert();
     assert.success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
@@ -69,8 +69,8 @@ fn test_list_with_vid_and_pid_filter() {
     let mut cmd = Command::cargo_bin("sinowealth-kb-tool").unwrap();
     let assert = cmd
         .arg("list")
-        .arg("--vendor_id").arg("0x05ac")
-        .arg("--product_id").arg("0x024f")
+        .args(&["--vendor_id", "0x05ac"])
+        .args(&["--product_id", "0x024f"])
         .assert();
     assert.success()
         .stdout(predicates::str::is_match(NUPHY_AIR60_SMK_ENTRY).unwrap());
