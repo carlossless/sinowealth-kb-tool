@@ -76,7 +76,7 @@ fn main() -> ExitCode {
     match err_main() {
         Ok(_) => ExitCode::SUCCESS,
         Err(err) => {
-            error!("{:}", err);
+            eprintln!("{:}", err);
             ExitCode::FAILURE
         }
     }
