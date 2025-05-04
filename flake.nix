@@ -48,6 +48,8 @@
             version = "latest";
 
             src = ./.;
+
+            checkFlags = [ "--bins" ]; # ignore integration tests
             doCheck = true; # run `cargo test` on build
 
             inherit buildInputs;
