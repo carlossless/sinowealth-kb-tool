@@ -176,8 +176,7 @@ impl DeviceSelector {
         devices: I,
         report_ids: &[u32],
     ) -> Result<Vec<&'a DeviceInfo>, DeviceSelectorError> {
-        let mut matched_devices: Vec<Option<&DeviceInfo>> = Vec::with_capacity(report_ids.len());
-        matched_devices.fill(None);
+        let mut matched_devices: Vec<Option<&DeviceInfo>> = vec![None; report_ids.len()];
 
         for d in devices {
             let retrieved_ids = self.get_feature_report_ids_from_path(d.path())?;
@@ -262,7 +261,7 @@ impl DeviceSelector {
 
         #[cfg(target_os = "windows")]
         return {
-            let devices = get_devices_for_report_ids(
+            let devices = self.get_devices_for_report_ids(
                 isp_devices.clone(),
                 &[REPORT_ID_ISP as u32, REPORT_ID_XFER as u32],
             )?;
@@ -282,7 +281,7 @@ impl DeviceSelector {
                 .open_path(xfer_device.path())
                 .map_err(DeviceSelectorError::from)?;
 
-            Ok(ISPDevice::new(part, cmd_handle, xfer_handle))
+            Ok(ISPDevice::new(device_spec, cmd_handle, xfer_handle))
         };
     }
 
