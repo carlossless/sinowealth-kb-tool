@@ -49,8 +49,7 @@
 
             src = ./.;
 
-            checkFlags = [ "--bins" ]; # ignore integration tests
-            doCheck = true; # run `cargo test` on build
+            doCheck = false; # integration tests depend on specific hardware being attached
 
             inherit buildInputs;
 
