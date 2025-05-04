@@ -34,9 +34,7 @@ sinowealth-kb-tool read \
     --bootloader_size 4096 \ # optional
     --page_size 2048 \ # optional
     --isp_iface_num 1 \ # optional
-    --isp_usage_page 0xff00 \ # optional
-    --isp_usage 0x0001 \ # optional
-    --isp_index 0 \ # optional
+    --isp_report_id 5 \ # optional
     --reboot false \ # optional
     foobar.hex
 ```
@@ -57,9 +55,7 @@ sinowealth-kb-tool write \
     --bootloader_size 4096 \ # optional
     --page_size 2048 \ # optional
     --isp_iface_num 1 \ # optional
-    --isp_usage_page 0xff00 \ # optional
-    --isp_usage 0x0001 \ # optional
-    --isp_index 0 \ # optional
+    --isp_report_id 5 \ # optional
     --reboot false \ # optional
     foobar.hex
 ```
