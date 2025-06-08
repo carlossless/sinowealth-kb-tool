@@ -84,6 +84,7 @@
             # nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
 
             buildInputs = with pkgs; [
+              pkg-config
               pkgsCross.gnu64.libusb1
             ];
           };
