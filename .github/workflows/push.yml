@@ -69,12 +69,15 @@ jobs:
           - TARGET: x86_64-unknown-linux-gnu
             ARCH: amd64
             OS: ubuntu-latest
+            HOST: x86_64-linux-gnu
           - TARGET: aarch64-unknown-linux-gnu
             ARCH: arm64
             OS: ubuntu-latest
+            HOST: aarch64-linux-gnu
           - TARGET: riscv64gc-unknown-linux-gnu
             ARCH: riscv64
             OS: ubuntu-latest
+            HOST: riscv64-linux-gnu
           - TARGET: x86_64-apple-darwin
             ARCH: amd64
             OS: macos-latest
@@ -102,13 +105,26 @@ jobs:
             ~/.cargo/registry
             ./target
           key: build-cargo-registry-${{matrix.TARGET}}
+      - name: Checkout libusb source
+        uses: actions/checkout@v4
+        with:
+          repository: libusb/libusb
+          path: libusb
       - name: Install and configure dependencies
         run: |
           # dependencies are only needed on ubuntu as that's the only place where
           # we do cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo dpkg --add-architecture ${{matrix.ARCH}}
-            sudo apt-get build-dep -qq libusb-1.0-0-dev:${{matrix.ARCH}}
+            mkdir -p build-${{ matrix.ARCH }}
+            cd build-${{ matrix.ARCH }}
+
+            ../libusb/configure \
+              --host=${{ matrix.HOST }} \
+              --prefix=$PWD/install \
+              PKG_CONFIG_LIBDIR=$PWD/install/lib/pkgconfig
+
+            make -j$(nproc)
+            make install
           fi
       - name: Install rust target
         run: rustup target add $TARGET
