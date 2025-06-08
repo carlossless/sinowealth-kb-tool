@@ -133,6 +133,12 @@ jobs:
 
             make -j$(nproc)
             make install
+
+            echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+            echo "PKG_CONFIG_PATH=$GITHUB_WORKSPACE/target-libs/aarch64/lib/pkgconfig" >> $GITHUB_ENV
+            echo "LIBUSB_LIB_DIR=$GITHUB_WORKSPACE/target-libs/aarch64/lib" >> $GITHUB_ENV
+            echo "LIBUSB_INCLUDE_DIR=$GITHUB_WORKSPACE/target-libs/aarch64/include/libusb-1.0" >> $GITHUB_ENV
+
           fi
       - name: Install rust target
         run: rustup target add $TARGET
