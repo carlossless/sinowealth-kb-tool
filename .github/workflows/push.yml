@@ -115,6 +115,14 @@ jobs:
           # dependencies are only needed on ubuntu as that's the only place where
           # we do cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
+            sudo apt-get install -qq \
+              autoconf \
+              automake \
+              libtool \
+              pkg-config \
+              libudev-dev \
+              libusb-1.0-0-dev
+
             mkdir -p build-${{ matrix.ARCH }}
             cd build-${{ matrix.ARCH }}
 
