@@ -118,7 +118,7 @@ jobs:
             mkdir -p build-${{ matrix.ARCH }}
             cd build-${{ matrix.ARCH }}
 
-            ../libusb/configure \
+            ./libusb/configure \
               --host=${{ matrix.HOST }} \
               --prefix=$PWD/install \
               PKG_CONFIG_LIBDIR=$PWD/install/lib/pkgconfig
