@@ -121,7 +121,8 @@ jobs:
               libtool \
               pkg-config \
               libudev-dev \
-              gcc-aarch64-linux-gnu
+              gcc-aarch64-linux-gnu \
+              gcc-riscv64-linux-gnu
 
             mkdir -p build-${{ matrix.ARCH }}
             cd build-${{ matrix.ARCH }}
