@@ -91,6 +91,7 @@
 
             buildInputs = with pkgs; [
               pkgsCross.gnu64.libusb1
+              pkgsCross.gnu64.binutils
             ];
           };
 
@@ -109,6 +110,7 @@
 
             buildInputs = with pkgs; [
               pkgsCross.gnu32.libusb1
+              pkgsCross.gnu32.binutils
             ];
           };
 
@@ -127,6 +129,7 @@
 
             buildInputs = with pkgs; [
               pkgsCross.aarch64-multiplatform.libusb1
+              pkgsCross.aarch64-multiplatform.binutils
             ];
           };
         };
