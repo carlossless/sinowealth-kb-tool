@@ -81,8 +81,11 @@
 
             doCheck = false;
 
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+            ];
+
             buildInputs = with pkgs; [
-              pkgsCross.gnu64.pkg-config
               pkgsCross.gnu64.libusb1
             ];
           };
@@ -92,8 +95,11 @@
 
             doCheck = false;
 
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+            ];
+
             buildInputs = with pkgs; [
-              pkgsCross.gnu32.pkg-config
               pkgsCross.gnu32.libusb1
             ];
           };
@@ -103,8 +109,11 @@
 
             doCheck = false;
 
+            nativeBuildInputs = with pkgs; [
+              pkg-config
+            ];
+
             buildInputs = with pkgs; [
-              pkgsCross.aarch64-multiplatform.pkg-config
               pkgsCross.aarch64-multiplatform.libusb1
             ];
           };
