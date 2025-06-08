@@ -81,11 +81,31 @@
 
             doCheck = false;
 
-            # nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
-
             buildInputs = with pkgs; [
               pkg-config
               pkgsCross.gnu64.libusb1
+            ];
+          };
+
+          i386-unknown-linux-gnu = naerskBuildPackage "i386-unknown-linux-gnu" {
+            src = ./.;
+
+            doCheck = false;
+
+            buildInputs = with pkgs; [
+              pkg-config
+              pkgsCross.gnu32.libusb1
+            ];
+          };
+
+          aarch64-unknown-linux-gnu = naerskBuildPackage "aarch64-unknown-linux-gnu" {
+            src = ./.;
+
+            doCheck = false;
+
+            buildInputs = with pkgs; [
+              pkg-config
+              pkgsCross.aarch64-multiplatform.libusb1
             ];
           };
         };
