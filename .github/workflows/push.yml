@@ -120,8 +120,7 @@ jobs:
               automake \
               libtool \
               pkg-config \
-              libudev-dev \
-              libusb-1.0-0-dev
+              libudev-dev
 
             mkdir -p build-${{ matrix.ARCH }}
             cd build-${{ matrix.ARCH }}
