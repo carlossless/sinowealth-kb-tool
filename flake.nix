@@ -36,29 +36,56 @@
           apple-sdk
           iconv
         ]);
+
+        package = naersk'.buildPackage {
+          pname = "sinowealth-kb-tool";
+          version = "latest";
+
+          src = ./.;
+
+          doCheck = false; # integration tests from running since they require an attached specific device
+
+          inherit buildInputs;
+
+          meta = with pkgs.lib; {
+            description = "A utility for reading and writing flash contents on Sinowealth 8051-based devices";
+            homepage = "https://github.com/carlossless/sinowealth-kb-tool";
+            license = licenses.mit;
+            mainProgram = "sinowealth-kb-tool";
+            maintainers = with maintainers; [ carlossless ];
+          };
+        };
+
+        lib = nixpkgs.lib;
+
+        darwin = [ "x86_64-darwin" "aarch64-darwin" ];
+        linux = [ "x86_64-linux" "aarch64-linux" ];
+        allSystems = darwin ++ linux;
+        forEachSystem = systems: f: lib.genAttrs systems (system: f system);
+
+        naerskBuildPackage = target: args:
+          naersk'.buildPackage (
+            args
+              // { CARGO_BUILD_TARGET = target; }
+          );
       in
       {
         formatter = pkgs.nixpkgs-fmt;
 
         packages = {
           # For `nix build` `nix run`, & `nix profile install`:
-          default = naersk'.buildPackage {
-            pname = "sinowealth-kb-tool";
-            version = "latest";
+          default = package;
 
+          x86_64-unknown-linux-gnu = naerskBuildPackage "x86_64-unknown-linux-gnu" {
             src = ./.;
 
-            doCheck = false; # integration tests from running since they require an attached specific device
+            doCheck = false;
 
-            inherit buildInputs;
+            # nativeBuildInputs = with pkgs; [ pkgsStatic.stdenv.cc ];
 
-            meta = with pkgs.lib; {
-              description = "A utility for reading and writing flash contents on Sinowealth 8051-based devices";
-              homepage = "https://github.com/carlossless/sinowealth-kb-tool";
-              license = licenses.mit;
-              mainProgram = "sinowealth-kb-tool";
-              maintainers = with maintainers; [ carlossless ];
-            };
+            buildInputs = with pkgs; [
+              pkgsCross.gnu64.libusb1
+            ];
           };
         };
 

@@ -67,10 +67,25 @@ jobs:
       matrix:
         include:
           - TARGET: x86_64-unknown-linux-gnu
+            ARCH: amd64
+            OS: ubuntu-latest
+          - TARGET: aarch64-unknown-linux-gnu
+            ARCH: arm64
+            OS: ubuntu-latest
+          - TARGET: riscv64gc-unknown-linux-gnu
+            ARCH: riscv64
             OS: ubuntu-latest
           - TARGET: x86_64-apple-darwin
+            ARCH: amd64
+            OS: macos-latest
+          - TARGET: aarch64-apple-darwin
+            ARCH: arm64
             OS: macos-latest
           - TARGET: x86_64-pc-windows-msvc
+            ARCH: amd64
+            OS: windows-latest
+          - TARGET: aarch64-pc-windows-msvc
+            ARCH: arm64
             OS: windows-latest
     needs: test
     runs-on: ${{ matrix.OS }}
@@ -90,9 +105,10 @@ jobs:
       - name: Install and configure dependencies
         run: |
           # dependencies are only needed on ubuntu as that's the only place where
-          # we make cross-compilation
+          # we do cross-compilation
           if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo apt-get install -qq libusb-1.0-0-dev
+            sudo dpkg --add-architecture ${{matrix.ARCH}}
+            sudo apt-get build-dep -qq libusb-1.0-0-dev:${{matrix.ARCH}}
           fi
       - name: Install rust target
         run: rustup target add $TARGET
