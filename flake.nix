@@ -81,6 +81,10 @@
 
             doCheck = false;
 
+            depsBuildBuild = with pkgs; [
+              pkgsCross.gnu64.stdenv.cc
+            ];
+
             nativeBuildInputs = with pkgs; [
               pkg-config
             ];
@@ -95,6 +99,10 @@
 
             doCheck = false;
 
+            depsBuildBuild = with pkgs; [
+              pkgsCross.gnu32.stdenv.cc
+            ];
+
             nativeBuildInputs = with pkgs; [
               pkg-config
             ];
@@ -108,6 +116,10 @@
             src = ./.;
 
             doCheck = false;
+
+            depsBuildBuild = with pkgs; [
+              pkgsCross.aarch64-multiplatform.stdenv.cc
+            ];
 
             nativeBuildInputs = with pkgs; [
               pkg-config
