@@ -82,7 +82,7 @@
             doCheck = false;
 
             buildInputs = with pkgs; [
-              pkg-config
+              pkgsCross.gnu64.pkg-config
               pkgsCross.gnu64.libusb1
             ];
           };
@@ -93,7 +93,7 @@
             doCheck = false;
 
             buildInputs = with pkgs; [
-              pkg-config
+              pkgsCross.gnu32.pkg-config
               pkgsCross.gnu32.libusb1
             ];
           };
@@ -104,7 +104,7 @@
             doCheck = false;
 
             buildInputs = with pkgs; [
-              pkg-config
+              pkgsCross.aarch64-multiplatform.pkg-config
               pkgsCross.aarch64-multiplatform.libusb1
             ];
           };
