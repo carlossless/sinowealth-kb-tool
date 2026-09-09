@@ -2,6 +2,7 @@ use phf::{phf_map, Map};
 
 use crate::platform_spec::{
     PlatformSpec, PLATFORM_SH68F881, PLATFORM_SH68F89, PLATFORM_SH68F90, PLATFORM_SH68F902,
+    PLATFORM_SH68F903,
 };
 
 const DEFAULT_ISP_IFACE_NUM: i32 = 1;
@@ -85,6 +86,16 @@ pub const DEVICE_BASE_SH68F902: DeviceSpec = DeviceSpec {
     isp_transform: None,
 };
 
+pub const DEVICE_BASE_SH68F903: DeviceSpec = DeviceSpec {
+    vendor_id: 0x0000,
+    product_id: 0x0000,
+    platform: PLATFORM_SH68F903,
+    isp_iface_num: DEFAULT_ISP_IFACE_NUM,
+    isp_report_id: DEFAULT_ISP_REPORT_ID,
+    reboot: DEFAULT_REBOOT,
+    isp_transform: None,
+};
+
 pub const DEVICE_AOKO_K101: DeviceSpec = DeviceSpec {
     vendor_id: 0x258a,
     product_id: 0x0155,
@@ -124,7 +135,7 @@ pub const DEVICE_DELTACO_WK95R: DeviceSpec = DeviceSpec {
 pub const DEVICE_DIERYA_DK68SE: DeviceSpec = DeviceSpec {
     vendor_id: 0x258a,
     product_id: 0x013b,
-    ..DEVICE_BASE_SH68F90
+    ..DEVICE_BASE_SH68F903
 };
 
 pub const DEVICE_DIGITALALLIANCE_MECA_WARRIOR_X: DeviceSpec = DeviceSpec {

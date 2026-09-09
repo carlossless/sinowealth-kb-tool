@@ -75,7 +75,7 @@ sinowisp write \
 | [Aula F87](https://www.aulastar.com/index.php/gaming-keyboard/157.html) | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A (?) | BYK916 (?) | ✅ | ✅ |
 | [CIY X77](https://a.co/d/fKEpeLU) | 571ea8b315654c39046e4cc3b1e43777 | SH68F89 (?) | BYK816 | ✅ | ✅ |
 | Deltaco Gaming WK95R | 2d169670eae0d36eae8188562c1f66e8 | SH68F90A | BYK916 | ✅ | ✅ |
-| Dierya DK68SE | ❓ | ❓ | BYK903 | ✅ | ✅ |
+| Dierya DK68SE | f7e71254659953fd1d139b815fd9880b | SH68F903A | BYK903 | ✅ | ✅ |
 | Digital Alliance Meca Warrior X | 2d169670eae0d36eae8188562c1f66e8 | SH68F90 | SH68F90S | ✅ | ✅ |
 | E-Yooso Z11 | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK901 | ✅ | ✅ |
 | E-Yooso Z82 | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90A | BYK916 | ✅ | ✅ |
@@ -141,6 +141,7 @@ sinowisp write \
 | 3e0ebd0c440af5236d7ff8872343f85d | SH68F90 / SH68F90A | 4096 | ok       | ok       | ok    | only bootloader with USB strings (`Gaming KB`) and an interrupt IN endpoint |
 | cfc8661da8c9d7e351b36c0a763426aa | SH68F90 / SH68F90A | 4096 | ok       | ok       | ok    |                                                                             |
 | 6dac0d2288f2a3d83b5703d979c114ec | SH68F902A          | 3072 | ok       | ?        | ?     | `2d169670` relinked to a 0x3000 base                                        |
+| f7e71254659953fd1d139b815fd9880b | SH68F903A          | 4096 | ?        | ?        | ok    |                                                                             |
 
 ## Prerequisites
 
